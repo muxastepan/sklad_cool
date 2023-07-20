@@ -1,37 +1,69 @@
 import re
 import tkinter as tk
+from abc import ABC
 from tkinter import ttk
 from sql_adapter import Adapter
+import datetime
 
 
-class AddWindow(tk.Toplevel):
-    def __init__(self, adapter: Adapter, table_name: str):
-        super().__init__()
-        self.adapter = adapter
-        self.table_name = table_name
-        self.submit_button = tk.Button(self, text='Отправить', command=self.submit_close)
-        self.data_columns = self.adapter.fetch_column_names(self.table_name)
-        self.combo_boxes = []
+class AddDBRecordDialogue(ABC):
+    def __init__(self, adapter: Adapter):
+        pass
 
     def submit_close(self):
-        data_list = []
-        for combo_box in self.combo_boxes:
-            data = combo_box.get()
-            data_list.append(data)
-        if self.table_name == 'products':
-            self.adapter.add_product(data_list)
-        elif self.table_name == 'employees':
-            self.adapter.add_employee(data_list[0])
+        pass
+
+    def show(self):
+        pass
+
+
+class AddProductRecordDialogue(AddDBRecordDialogue, tk.Toplevel):
+    def __init__(self, adapter: Adapter):
+        super().__init__()
+        self.adapter = adapter
+        self.submit_button = tk.Button(self, text='Отправить', command=self.submit_close)
+        self.size_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('product_size'))
+        self.type_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('product_type'))
+        self.subtype_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('product_subtype'))
+        self.color_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('product_color'))
+        self.date_entry = tk.Entry(self)
+        self.date_entry.insert(0, str(datetime.datetime.now().date()))
+        self.laid_by_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('laid_by'))
+        self.rolled_by_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('rolled_by'))
+        self.article_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('article'))
+
+    def submit_close(self):
+        data_list = [
+            self.size_entry.get(),
+            self.type_entry.get(),
+            self.subtype_entry.get(),
+            self.color_entry.get(),
+            self.date_entry.get(),
+            self.laid_by_entry.get(),
+            self.rolled_by_entry.get(),
+            self.article_entry.get()
+        ]
+        self.adapter.add_product(data_list)
         self.destroy()
 
     def show(self):
-        for column in self.data_columns:
-            cur_name = column[0].replace('_', ' ')
-            combo_box = ttk.Combobox(self)
-            combo_box['values'] = column[1]
-            self.combo_boxes.append(combo_box)
-            tk.Label(self, text=cur_name).pack()
-            combo_box.pack()
+        tk.Label(self, text='Размер').pack()
+        self.size_entry.pack()
+        tk.Label(self, text='Тип').pack()
+        self.type_entry.pack()
+        tk.Label(self, text='Подтип').pack()
+        self.subtype_entry.pack()
+        tk.Label(self, text='Цвет').pack()
+        self.color_entry.pack()
+        tk.Label(self, text='Дата поступления на склад').pack()
+        self.date_entry.pack()
+        tk.Label(self, text='Закладка').pack()
+        self.laid_by_entry.pack()
+        tk.Label(self, text='Катка').pack()
+        self.rolled_by_entry.pack()
+        tk.Label(self, text='Артикул').pack()
+        self.article_entry.pack()
+
         self.submit_button.pack()
 
 
@@ -39,16 +71,16 @@ class MainFrame(tk.Tk):
     def __init__(self):
         super().__init__()
         self.sql_adapter = Adapter('testdb')
-        self.add_product_button = tk.Button(text='Добавить запись', command=self.show_add_product_dialogue)
-        self.add_employee_button = tk.Button(text='Добавить запись', command=self.show_add_employee_dialogue)
+        self.add_product_button = tk.Button(text='Добавить продукт', command=self.show_add_product_dialogue)
+        self.add_employee_button = tk.Button(text='Добавить сотрудника', command=self.show_add_employee_dialogue)
         self.add_window = None
 
     def show_add_product_dialogue(self):
-        self.add_window = AddWindow(self.sql_adapter, 'products')
+        self.add_window = AddProductRecordDialogue(self.sql_adapter)
         self.add_window.show()
 
     def show_add_employee_dialogue(self):
-        self.add_window = AddWindow(self.sql_adapter, 'employees')
+        self.add_window = AddProductRecordDialogue(self.sql_adapter)
         self.add_window.show()
 
     def run(self):
