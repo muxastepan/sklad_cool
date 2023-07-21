@@ -3,12 +3,8 @@ import psycopg2
 conn = psycopg2.connect(dbname="testdb", user="postgres", password="12345")
 
 cur = conn.cursor()
-cur.execute('''
-DROP TABLE IF EXISTS employees CASCADE;
-''')
-cur.execute('''
-DROP TABLE IF EXISTS products;
-''')
+
+
 cur.execute('''
 CREATE TABLE IF NOT EXISTS employees
 (
@@ -25,7 +21,7 @@ CREATE TABLE IF NOT EXISTS products
     product_type VARCHAR,
     product_subtype VARCHAR,
     product_color VARCHAR,
-    product_date_storaged DATE,
+    product_date_stored DATE,
     laid_by INT, 	
     rolled_by INT,
     article VARCHAR,

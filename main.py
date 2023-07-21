@@ -2,48 +2,88 @@ import re
 import tkinter as tk
 from abc import ABC
 from tkinter import ttk
-from sql_adapter import Adapter
+from typing import Union
+
+from sql_adapter import Adapter, ProductsTable, EmployeesTable
 import datetime
 
 
-class AddDBRecordDialogue(ABC):
-    def __init__(self, adapter: Adapter):
-        pass
+class DataGridView:
+    def __init__(self, column_names: Union[list, tuple]):
+        self.name_labels, self.value_entries = self._build(column_names)
 
-    def submit_close(self):
-        pass
+    def _build(self, column_names):
+        name_labels = []
+        value_entries = []
+        for name in column_names:
+            name_labels.append(tk.Label(text=name))
+            value_entries.append(tk.Entry())
+        return name_labels, value_entries
 
     def show(self):
-        pass
+        for i in range(len(self.name_labels)):
+            self.name_labels[i].grid(row=1, column=i)
+            self.value_entries[i].grid(row=2, column=i)
 
 
-class AddProductRecordDialogue(AddDBRecordDialogue, tk.Toplevel):
-    def __init__(self, adapter: Adapter):
+class AutoCompletionCombobox(ttk.Combobox):
+    def __init__(self, root, values=None):
+        super().__init__(root, values=values)
+        self.bind('<KeyRelease>', self.check_input)
+        self.bind('<FocusIn>', self.check_input)
+        self.old_values = self['values']
+
+    def check_input(self, event):
+        value = self.get()
+
+        if value != '':
+            data = []
+            for item in self.old_values:
+                if value in item:
+                    data.append(item)
+            self['values'] = data
+
+
+class AddProductRecordDialogue(tk.Toplevel):
+    def __init__(self, products_table: ProductsTable, employees_table: EmployeesTable):
         super().__init__()
-        self.adapter = adapter
+        self.employees_table = employees_table
+        self.products_table = products_table
         self.submit_button = tk.Button(self, text='Отправить', command=self.submit_close)
-        self.size_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('product_size'))
-        self.type_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('product_type'))
-        self.subtype_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('product_subtype'))
-        self.color_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('product_color'))
+        self.size_entry = AutoCompletionCombobox(self, values=self.products_table.column_unique_attrs['product_size'])
+        self.type_entry = AutoCompletionCombobox(self, values=self.products_table.column_unique_attrs['product_type'])
+        self.subtype_entry = AutoCompletionCombobox(self,
+                                                    values=self.products_table.column_unique_attrs['product_subtype'])
+        self.color_entry = AutoCompletionCombobox(self, values=self.products_table.column_unique_attrs['product_color'])
         self.date_entry = tk.Entry(self)
         self.date_entry.insert(0, str(datetime.datetime.now().date()))
-        self.laid_by_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('laid_by'))
-        self.rolled_by_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('rolled_by'))
-        self.article_entry = ttk.Combobox(self, values=self.adapter.unique_values_from_products('article'))
+        self.laid_by_entry = AutoCompletionCombobox(self,
+                                                    values=self.employees_table.column_unique_attrs['employee_name'])
+        self.rolled_by_entry = AutoCompletionCombobox(self,
+                                                      values=self.employees_table.column_unique_attrs['employee_name'])
+        self.article_entry = ttk.Entry(self)
 
     def submit_close(self):
+        size = self.size_entry.get()
+        p_type = self.type_entry.get()
+        p_subtype = self.subtype_entry.get()
+        color = self.color_entry.get()
+        date = self.date_entry.get()
+        laid_by = self.employees_table.name_to_id(self.laid_by_entry.get())
+        rolled_by = self.employees_table.name_to_id(self.rolled_by_entry.get())
+        article = self.article_entry.get()
         data_list = [
-            self.size_entry.get(),
-            self.type_entry.get(),
-            self.subtype_entry.get(),
-            self.color_entry.get(),
-            self.date_entry.get(),
-            self.laid_by_entry.get(),
-            self.rolled_by_entry.get(),
-            self.article_entry.get()
+            size,
+            p_type,
+            p_subtype,
+            color,
+            date,
+            laid_by,
+            rolled_by,
+            article
         ]
-        self.adapter.add_product(data_list)
+        self.products_table.add(data_list)
+        self.products_table.update_unique_attrs(data_list[:4])
         self.destroy()
 
     def show(self):
@@ -67,25 +107,49 @@ class AddProductRecordDialogue(AddDBRecordDialogue, tk.Toplevel):
         self.submit_button.pack()
 
 
+class AddEmployeeRecordDialogue(tk.Toplevel):
+    def __init__(self, employees_table: EmployeesTable):
+        super().__init__()
+        self.employees_table = employees_table
+        self.submit_button = tk.Button(self, text='Отправить', command=self.submit_close)
+        self.name_entry = AutoCompletionCombobox(self, values=employees_table.column_unique_attrs['employee_name'])
+
+    def submit_close(self):
+        data_list = [
+            self.name_entry.get()
+        ]
+        self.employees_table.add(data_list)
+        self.destroy()
+
+    def show(self):
+        tk.Label(self, text='Имя').pack()
+        self.name_entry.pack()
+        self.submit_button.pack()
+
+
 class MainFrame(tk.Tk):
     def __init__(self):
         super().__init__()
         self.sql_adapter = Adapter('testdb')
+        self.product_table = ProductsTable(self.sql_adapter)
+        self.employees_table = EmployeesTable(self.sql_adapter)
         self.add_product_button = tk.Button(text='Добавить продукт', command=self.show_add_product_dialogue)
         self.add_employee_button = tk.Button(text='Добавить сотрудника', command=self.show_add_employee_dialogue)
         self.add_window = None
+        self.data_grid = DataGridView(('Размер', 'Тип', 'Подтип', 'Цвет', 'Дата', 'Закл', 'Катка', 'Артикул'))
 
     def show_add_product_dialogue(self):
-        self.add_window = AddProductRecordDialogue(self.sql_adapter)
+        self.add_window = AddProductRecordDialogue(self.product_table, self.employees_table)
         self.add_window.show()
 
     def show_add_employee_dialogue(self):
-        self.add_window = AddProductRecordDialogue(self.sql_adapter)
+        self.add_window = AddEmployeeRecordDialogue(self.employees_table)
         self.add_window.show()
 
     def run(self):
-        self.add_product_button.pack()
-        self.add_employee_button.pack()
+        self.add_product_button.grid(row=0, column=0, sticky=tk.EW)
+        self.add_employee_button.grid(row=0, column=1, sticky=tk.EW)
+        self.data_grid.show()
         self.mainloop()
 
 
