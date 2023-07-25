@@ -3,8 +3,8 @@ import psycopg2
 
 
 class Adapter:
-    def __init__(self, dbname: str, user='postgres', password='12345'):
-        self.con = psycopg2.connect(dbname=dbname, user=user, password=password)
+    def __init__(self, dbname: str, user='postgres', password='12345', port='5432', host='localhost'):
+        self.con = psycopg2.connect(dbname=dbname, user=user, password=password, port=port, host=host)
         self.cur = self.con.cursor()
 
     def insert(self, table_name: str, data_list: Union[list, tuple], column_order: tuple = None):
@@ -17,7 +17,8 @@ class Adapter:
             else:
                 column_order_placeholder = f"({','.join(column_order)}) "
         try:
-            self.cur.execute(f"INSERT INTO {table_name} {column_order_placeholder}VALUES {values_placeholder}", data_list)
+            self.cur.execute(f"INSERT INTO {table_name} {column_order_placeholder}VALUES {values_placeholder}",
+                             data_list)
         except psycopg2.Error as ex:
             print(ex)
             self.con.rollback()
