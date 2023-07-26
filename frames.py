@@ -1,4 +1,4 @@
-import psycopg2
+
 
 from dialogues import *
 from widgets import *
@@ -58,6 +58,3 @@ class Menu(tk.Menu):
         super().__init__(parent)
         self.settings_menu = settings_menu
         self.add_cascade(label='Настройки', menu=self.settings_menu)
-
-
-

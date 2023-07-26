@@ -7,7 +7,7 @@ class Table:
     def __init__(self, adapter: Adapter, table_name: str, column_names: Union[list, tuple],
                  column_headings: Union[list, tuple], var_attrs_indexes: Union[tuple, list] = None,
                  related_table=None,
-                 var_attrs_indexes_from_rel_table: Union[tuple[Union[tuple, list]], list[Union[tuple, list]]] = None):
+                 var_attrs_indexes_from_rel_table: Union[tuple, list] = None):
 
         self.var_attrs_indexes_from_rel_table = var_attrs_indexes_from_rel_table
         self.var_attrs_indexes = var_attrs_indexes

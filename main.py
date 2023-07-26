@@ -1,5 +1,8 @@
 import os
 import sys
+
+import psycopg2
+
 from frames import *
 from misc import SettingsFileManager
 from tables import *

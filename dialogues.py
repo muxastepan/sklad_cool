@@ -1,4 +1,4 @@
-import json
+
 
 from misc import SettingsFileManager
 from tables import *
