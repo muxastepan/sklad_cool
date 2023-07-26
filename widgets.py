@@ -7,6 +7,18 @@ import datetime
 from tables import Table
 
 
+class RestartQuestionBox(tk.Toplevel):
+    def __init__(self, parent, text):
+        super().__init__(parent)
+        self.parent = parent
+        tk.Label(self, text=text).pack(side=tk.TOP)
+        tk.Button(self, text='Нет', command=self.destroy,width=20).pack(side=tk.LEFT, padx=20)
+        tk.Button(self, text='Да', command=self.restart,width=20).pack(side=tk.RIGHT, padx=20)
+
+    def restart(self):
+        self.parent.restart()
+
+
 class MessageBox(tk.Toplevel):
     def __init__(self, parent, text):
         super().__init__(parent)
@@ -20,7 +32,7 @@ class DataGridView(tk.Frame):
         self.table = table
         self.data = self.table.select_all()
         self.y_scroll_bar = tk.Scrollbar(self)
-        self.x_scroll_bar = tk.Scrollbar(self,orient=tk.HORIZONTAL)
+        self.x_scroll_bar = tk.Scrollbar(self, orient=tk.HORIZONTAL)
         self.table_gui = ttk.Treeview(self)
         self._build_table()
 

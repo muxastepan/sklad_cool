@@ -1,3 +1,6 @@
+import json
+
+from misc import SettingsFileManager
 from tables import *
 from widgets import *
 
@@ -98,14 +101,21 @@ class AddEmployeeRecordDialogue(AddDBRecordDialogue):
 
 
 class SettingsDialogue(tk.Toplevel):
-    def __init__(self, parent):
+    def __init__(self, parent, settings):
         super().__init__(parent)
+        self.settings = settings
         self.cancel_button = tk.Button(self, text='Отмена', command=self.cancel)
         self.save_button = tk.Button(self, text='Применить', command=self.submit)
+        self.save_close_button = tk.Button(self, text='Применить и выйти', command=self.submit_close)
 
     def show(self):
         self.save_button.pack(fill=tk.X)
+        self.save_close_button.pack(fill=tk.X)
         self.cancel_button.pack(fill=tk.X)
+
+    def submit_close(self):
+        self.submit()
+        self.destroy()
 
     def submit(self):
         pass
@@ -115,12 +125,15 @@ class SettingsDialogue(tk.Toplevel):
 
 
 class WindowSettingsDialogue(SettingsDialogue):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, settings):
+        super().__init__(parent, settings)
+        self.parent = parent
+        self.width = tk.StringVar(value=self.settings['window_settings']['width'])
+        self.height = tk.StringVar(value=self.settings['window_settings']['height'])
         self.width_frame = tk.LabelFrame(self)
         self.height_frame = tk.LabelFrame(self)
-        self.height_entry = tk.Entry(self.height_frame)
-        self.width_entry = tk.Entry(self.width_frame)
+        self.height_entry = tk.Entry(self.height_frame, textvariable=self.height)
+        self.width_entry = tk.Entry(self.width_frame, textvariable=self.width)
 
     def show(self):
         self.width_frame.pack()
@@ -131,31 +144,71 @@ class WindowSettingsDialogue(SettingsDialogue):
         self.width_entry.pack(pady=10, padx=10)
         super().show()
 
+    def submit(self):
+        width = self.width.get()
+        height = self.height.get()
+        self.settings['window_settings']['width'] = width
+        self.settings['window_settings']['height'] = height
+        SettingsFileManager.write_settings('settings', self.settings)
+        self.parent.geometry(f'{width}x{height}')
 
-class SQLSEttingsDialogue(SettingsDialogue):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def submit_close(self):
+        self.submit()
+        self.destroy()
+
+
+class SQLSettingsDialogue(SettingsDialogue):
+    def __init__(self, parent, settings):
+        super().__init__(parent, settings)
+        self.parent = parent
+        self.dbname = tk.StringVar(value=self.settings['sql_settings']['db_name'])
+        self.host = tk.StringVar(value=self.settings['sql_settings']['host'])
+        self.port = tk.StringVar(value=self.settings['sql_settings']['port'])
+        self.user_name = tk.StringVar(value=self.settings['sql_settings']['user_name'])
+        self.password = tk.StringVar(value=self.settings['sql_settings']['password'])
+
         self.db_frame = tk.LabelFrame(self)
         self.user_frame = tk.LabelFrame(self)
-        self.dbname = tk.Entry(self.db_frame)
-        self.host = tk.Entry(self.db_frame)
-        self.port = tk.Entry(self.db_frame)
-        self.user_name = tk.Entry(self.user_frame)
-        self.user_password = tk.Entry(self.user_frame)
+        self.dbname_entry = tk.Entry(self.db_frame, textvariable=self.dbname)
+        self.host_entry = tk.Entry(self.db_frame, textvariable=self.host)
+        self.port_entry = tk.Entry(self.db_frame, textvariable=self.port)
+        self.user_name_entry = tk.Entry(self.user_frame, textvariable=self.user_name)
+        self.user_password_entry = tk.Entry(self.user_frame, textvariable=self.password)
+
+    def submit(self):
+        host = self.host.get()
+        port = self.port.get()
+        user = self.user_name.get()
+        password = self.password.get()
+        dbname = self.dbname.get()
+
+        self.settings['sql_settings']['host'] = host
+        self.settings['sql_settings']['port'] = port
+        self.settings['sql_settings']['user'] = user
+        self.settings['sql_settings']['password'] = password
+        self.settings['sql_settings']['db_name'] = dbname
+
+        SettingsFileManager.write_settings('settings', self.settings)
+
+        RestartQuestionBox(self.parent, 'Изменения вступят в силу после перезапуска приложения.\n Перезапустить?')
+
+    def submit_close(self):
+        self.submit()
+        self.destroy()
 
     def show(self):
         self.user_frame.pack()
         tk.Label(self.user_frame, text='Имя пользователя').pack()
-        self.user_name.pack(padx=10, pady=10)
+        self.user_name_entry.pack(padx=10, pady=10)
         tk.Label(self.user_frame, text='Пароль').pack()
-        self.user_password.pack(padx=10, pady=10)
+        self.user_password_entry.pack(padx=10, pady=10)
 
         self.db_frame.pack()
         tk.Label(self.db_frame, text='Имя БД').pack()
-        self.dbname.pack(padx=10, pady=10)
+        self.dbname_entry.pack(padx=10, pady=10)
         tk.Label(self.db_frame, text='Хост').pack()
-        self.host.pack(padx=10, pady=10)
+        self.host_entry.pack(padx=10, pady=10)
         tk.Label(self.db_frame, text='Порт').pack()
-        self.port.pack(padx=10, pady=10)
+        self.port_entry.pack(padx=10, pady=10)
 
         super().show()

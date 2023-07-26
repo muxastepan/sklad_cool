@@ -78,11 +78,6 @@ class EmployeesTable(Table):
         super().__init__(adapter, 'employees',
                          ('employee_id', 'employee_name'),
                          ('ID', 'Имя'), var_attrs_indexes=[1]
-                         # var_attrs_indexes={
-                         #     'employee_name':
-                         #         [item[0] for item in
-                         #          adapter.select('employees', ('employee_name',), distinct=True)],
-                         # }
                          )
 
     def add(self, data_list):

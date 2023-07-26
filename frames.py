@@ -1,3 +1,5 @@
+import psycopg2
+
 from dialogues import *
 from widgets import *
 from tables import *
@@ -36,44 +38,26 @@ class EmployeeTabFrame(TabFrame):
         AddEmployeeRecordDialogue(self, self.table).show()
 
 
-class Menu(tk.Menu):
-    def __init__(self, parent):
-        super().__init__(parent)
-        settings_menu = tk.Menu(self, tearoff=0)
-        settings_menu.add_command(label='Окно...', command=self.show_window_settings)
-        settings_menu.add_command(label='SQL...', command=self.show_sql_settings)
-        self.add_cascade(label='Настройки', menu=settings_menu)
+class SettingsMenu(tk.Menu):
+    def __init__(self, parent, settings):
+        super().__init__(parent, tearoff=0)
+        self.parent = parent
+        self.settings = settings
+        self.add_command(label='Окно...', command=self.show_window_settings)
+        self.add_command(label='SQL...', command=self.show_sql_settings)
 
     def show_window_settings(self):
-        WindowSettingsDialogue(self).show()
+        WindowSettingsDialogue(self.parent, self.settings).show()
 
     def show_sql_settings(self):
-        SQLSEttingsDialogue(self).show()
+        SQLSettingsDialogue(self.parent, self.settings).show()
 
 
-class MainFrame(tk.Tk):
-    def __init__(self, width, height, db_name, host, port, user_name, password):
-        super().__init__()
-        self.geometry(f'{width}x{height}')
-        self.sql_adapter = Adapter(dbname=db_name, host=host,
-                                   port=port, user=user_name, password=password)
-        self.employees_table = EmployeesTable(self.sql_adapter)
-        self.product_table = ProductsTable(self.sql_adapter, self.employees_table)
+class Menu(tk.Menu):
+    def __init__(self, parent, settings_menu: SettingsMenu):
+        super().__init__(parent)
+        self.settings_menu = settings_menu
+        self.add_cascade(label='Настройки', menu=self.settings_menu)
 
-        self._build()
 
-    def _build(self):
-        self.menu = Menu(self)
-        self.config(menu=self.menu)
 
-        self.tabs = ttk.Notebook(self)
-        self.storage_tab = StorageTabFrame(self.tabs, self.sql_adapter, self.product_table)
-        self.employees_tab = EmployeeTabFrame(self.tabs, self.sql_adapter, self.employees_table)
-
-    def show(self):
-        self.storage_tab.show()
-        self.employees_tab.show()
-        self.tabs.add(self.storage_tab, text='Склад')
-        self.tabs.add(self.employees_tab, text='Сотрудники')
-        self.tabs.pack(fill=tk.BOTH)
-        self.mainloop()
