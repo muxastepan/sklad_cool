@@ -1,6 +1,8 @@
+import re
 from typing import Union
 
 from sql_adapter import Adapter
+from data_matrix import DataMatrixReader
 
 
 class Table:
@@ -59,6 +61,19 @@ class Table:
     def select_all(self):
         return self.adapter.select(self.table_name)
 
+    def find_id(self, attrs: Union[list, tuple]):
+        conditions = ''
+        for i, attr in enumerate(attrs):
+            if re.match('\d{4}-\d{2}-\d{2}', attr):
+                conditions += f"{self.column_names[i + 1]} = '{attr}'"
+            elif re.match('\d+', attr):
+                conditions += f"{self.column_names[i + 1]} = {attr}"
+            else:
+                conditions += f"{self.column_names[i + 1]} = '{attr}'"
+            if i < len(attrs) - 1:
+                conditions += ' AND '
+        return self.adapter.select(self.table_name, (self.column_names[0],), conditions=conditions,limit=1)[0][0]
+
     def select_columns(self, columns: tuple):
         return self.adapter.select(self.table_name, columns)
 
@@ -95,20 +110,21 @@ class EmployeesTable(Table):
         return res_id[0][0]
 
     def id_to_name(self, employee_id):
-        return self.select_where((self.column_names[1],), f"{self.column_names[0]} = '{employee_id}'")[0]
+        return self.select_where((self.column_names[1],), f"{self.column_names[0]} = '{employee_id}'")[0][0]
 
 
 class ProductsTable(Table):
     def __init__(self, adapter: Adapter, related_table: EmployeesTable):
         super().__init__(adapter, 'products',
                          ('product_id', 'product_size', 'product_type', 'product_subtype', 'product_color',
-                          'product_date_stored', 'laid_by', 'rolled_by', 'article'),
-                         ('ID', 'Размер', 'Тип', 'Подтип', 'Цвет', 'Дата', 'Закл', 'Катка', 'Артикул'),
+                          'product_date_stored', 'laid_by', 'rolled_by'),
+                         ('ID', 'Размер', 'Тип', 'Подтип', 'Цвет', 'Дата', 'Закл', 'Катка'),
                          var_attrs_indexes=[1, 2, 3, 4],
                          var_attrs_indexes_from_rel_table=[(6, 1), (7, 1)],
                          related_table=related_table)
 
     def add(self, data_list):
+        DataMatrixReader.create_matrix(data_list)
         return self.adapter.insert(self.table_name, data_list,
                                    column_order=self.column_names[1:])
 
@@ -116,15 +132,33 @@ class ProductsTable(Table):
         data = self.adapter.select(self.table_name)
         res_data = []
         for rec in data:
-            laid_by = self.related_table.id_to_name(rec[6])
-            rolled_by = self.related_table.id_to_name(rec[7])
-            res_rec = rec[:6] + laid_by + rolled_by + rec[8:]
-            res_data.append(res_rec)
+            rec = self.emp_id_to_name(rec)
+            res_data.append(rec)
         return res_data
 
     def select_last_id(self):
         data = self.select_last(self.column_names[0])
-        laid_name = self.related_table.id_to_name(data[6])
-        rolled_name = self.related_table.id_to_name(data[7])
-        new_data = data[:6] + laid_name + rolled_name + data[8:]
-        return new_data
+        self.emp_id_to_name(data)
+        return data
+
+    def emp_name_to_id(self, data: Union[tuple, list]):
+        if type(data) == tuple:
+            data = [i for i in data]
+        if len(data) == 8:
+            data[6] = self.related_table.name_to_id(data[6])
+            data[7] = self.related_table.name_to_id(data[7])
+        elif len(data) == 7:
+            data[5] = self.related_table.name_to_id(data[5])
+            data[6] = self.related_table.name_to_id(data[6])
+        return data
+
+    def emp_id_to_name(self, data: Union[tuple, list]):
+        if type(data) == tuple:
+            data = [i for i in data]
+        if len(data) == 8:
+            data[6] = self.related_table.id_to_name(data[6])
+            data[7] = self.related_table.id_to_name(data[7])
+        elif len(data) == 7:
+            data[5] = self.related_table.id_to_name(data[5])
+            data[6] = self.related_table.id_to_name(data[6])
+        return data

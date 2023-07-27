@@ -23,8 +23,7 @@ CREATE TABLE IF NOT EXISTS products
     product_color VARCHAR NOT NULL,
     product_date_stored DATE NOT NULL,
     laid_by INT NOT NULL, 	
-    rolled_by INT NOT NULL,
-    article VARCHAR NOT NULL,
+    rolled_by INT NOT NULL,    
     PRIMARY KEY(product_id),
     CONSTRAINT fk_laid_id
         FOREIGN KEY(laid_by) 

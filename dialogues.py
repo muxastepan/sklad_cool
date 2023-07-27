@@ -1,4 +1,4 @@
-
+from typing import Literal
 
 from misc import SettingsFileManager
 from tables import *
@@ -6,12 +6,26 @@ from widgets import *
 
 
 class AddDBRecordDialogue(tk.Toplevel):
-    def __init__(self, parent, table: Table):
+    def __init__(self, parent, table: Table, pre_load_vals: Union[list, tuple] = None):
         super().__init__(parent)
+        self.focus()
+        self.pre_load_vals = pre_load_vals
         self.parent = parent
         self.table = table
         self.submit_button = tk.Button(self, text='Отправить', command=self.submit_close)
-        self.value_entries = self._build()
+        self.value_entries = self._preload_build() if self.pre_load_vals else self._build()
+        self.bind('<Return>', self.submit_close_k_enter)
+
+    def submit_close_k_enter(self, event):
+        self.submit_close()
+
+    def _preload_build(self):
+        value_entries = []
+        for attr in self.pre_load_vals:
+            var = tk.StringVar(value=attr)
+            entry = tk.Entry(self, textvariable=var)
+            value_entries.append(entry)
+        return value_entries
 
     def _build(self):
         value_entries = []
@@ -46,8 +60,8 @@ class AddDBRecordDialogue(tk.Toplevel):
 
 
 class AddProductRecordDialogue(AddDBRecordDialogue):
-    def __init__(self, parent, products_table: ProductsTable):
-        super().__init__(parent, products_table)
+    def __init__(self, parent, products_table: ProductsTable, pre_load_vals: Union[list, tuple] = None):
+        super().__init__(parent, products_table, pre_load_vals)
 
     def submit_close(self):
         data = []
@@ -58,15 +72,16 @@ class AddProductRecordDialogue(AddDBRecordDialogue):
             else:
                 data.append(None)
         try:
-            laid_id = self.table.related_table.name_to_id(data[5])
-            rolled_id = self.table.related_table.name_to_id(data[6])
+            self.table.emp_name_to_id(data)
+            laid_id = data[5]
+            rolled_id = data[6]
         except NameError as ex:
             print(ex)
             MessageBox(self.parent, 'Поля не заполнены')
             self.destroy()
             return
 
-        db_add = self.table.add(data[:5] + [laid_id, rolled_id] + data[7:])
+        db_add = self.table.add(data[:5] + [laid_id, rolled_id])
         if db_add:
             self.parent.data_grid.add_row(self.table.select_last_id())
             self.table.update_var_attrs(data)
@@ -77,27 +92,23 @@ class AddProductRecordDialogue(AddDBRecordDialogue):
     def _build(self):
         value_entries = []
         for i in range(1, len(self.table.column_names)):
-            entry = None
             column = self.table.column_names[i]
-            if i != 5 and i != 8:
+            if i != 5:
                 if column in self.table.columns_var_attrs:
                     entry = AutoCompletionCombobox(self, values=[item for item in self.table.columns_var_attrs[
                         column] if item])
                 else:
                     entry = AutoCompletionCombobox(self)
-            elif i == 5:
+            else:
                 date = tk.StringVar(value=str(datetime.date.today()))
                 entry = tk.Entry(self, textvariable=date)
-            elif i == 8:
-                art = tk.StringVar(value='test')
-                entry = tk.Entry(self, textvariable=art)
             value_entries.append(entry)
         return value_entries
 
 
 class AddEmployeeRecordDialogue(AddDBRecordDialogue):
-    def __init__(self, parent, employees_table: EmployeesTable):
-        super().__init__(parent, employees_table)
+    def __init__(self, parent, employees_table: EmployeesTable, pre_load_vals: Union[list, tuple] = None):
+        super().__init__(parent, employees_table, pre_load_vals)
 
 
 class SettingsDialogue(tk.Toplevel):
@@ -212,3 +223,38 @@ class SQLSettingsDialogue(SettingsDialogue):
         self.port_entry.pack(padx=10, pady=10)
 
         super().show()
+
+
+class ReadBarCodeDialogue(tk.Toplevel):
+    def __init__(self, parent, table: ProductsTable, mode: Literal['ADD', 'DELETE']):
+        super().__init__(parent)
+        self.parent = parent
+        self.mode = mode
+        self.table = table
+        self.bar_code_entry = tk.Entry(self)
+        self.bind('<Return>', self.submit)
+
+    def add(self):
+        data = self.bar_code_entry.get()
+        attrs = DataMatrixReader.read(data)
+        self.table.emp_id_to_name(attrs)
+        AddProductRecordDialogue(self.parent, self.table, attrs).show()
+
+    def delete(self):
+        data = self.bar_code_entry.get()
+        attrs = DataMatrixReader.read(data)
+        id_to_del = self.table.find_id(attrs)
+        self.table.remove(self.table.column_names[0], id_to_del)
+        self.parent.data_grid.delete_row(id_to_del)
+
+    def submit(self, event):
+        if self.mode == 'ADD':
+            self.add()
+        elif self.mode == 'DELETE':
+            self.delete()
+        self.destroy()
+
+    def show(self):
+        tk.Label(self, text='После ввода нажмите клавишу Enter').pack()
+        self.bar_code_entry.pack()
+        self.bar_code_entry.focus()

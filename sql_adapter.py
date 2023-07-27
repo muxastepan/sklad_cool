@@ -2,6 +2,7 @@ from typing import Union
 import psycopg2
 
 
+
 class Adapter:
     def __init__(self, dbname: str, user='postgres', password='12345', port='5432', host='localhost'):
         self.con = psycopg2.connect(dbname=dbname, user=user, password=password, port=port, host=host)

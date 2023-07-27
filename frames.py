@@ -1,5 +1,4 @@
-
-
+import tkinter as tk
 from dialogues import *
 from widgets import *
 from tables import *
@@ -25,9 +24,23 @@ class TabFrame(tk.Frame):
 class StorageTabFrame(TabFrame):
     def __init__(self, parent, adapter: Adapter, table: ProductsTable):
         super().__init__(parent, adapter, table)
+        self.add_bar_code_btn = tk.Button(self, text='Добавить по штрих-коду', command=self.show_add_bar_code_dialogue)
+        self.delete_bar_code_btn = tk.Button(self, text='Удалить по штрих-коду',
+                                             command=self.show_delete_bar_code_dialogue)
 
     def show_add_dialogue(self):
         AddProductRecordDialogue(self, self.table).show()
+
+    def show_add_bar_code_dialogue(self):
+        ReadBarCodeDialogue(self, self.table, 'ADD').show()
+
+    def show_delete_bar_code_dialogue(self):
+        ReadBarCodeDialogue(self, self.table, 'DELETE').show()
+
+    def show(self):
+        self.delete_bar_code_btn.pack(fill=tk.X)
+        self.add_bar_code_btn.pack(fill=tk.X)
+        super().show()
 
 
 class EmployeeTabFrame(TabFrame):
