@@ -1,6 +1,7 @@
 import re
 from typing import Union
 
+from misc import TypeIdentifier
 from sql_adapter import Adapter
 from data_matrix import DataMatrixReader
 
@@ -64,7 +65,9 @@ class Table:
     def find_id(self, attrs: Union[list, tuple]):
         conditions = ''
         for i, attr in enumerate(attrs):
-            if re.match('\d{4}-\d{2}-\d{2}', attr):
+            if attr == 'None':
+                conditions += f"{self.column_names[i + 1]} IS NULL"
+            elif re.match('\d{4}-\d{2}-\d{2}', attr):
                 conditions += f"{self.column_names[i + 1]} = '{attr}'"
             elif re.match('\d+', attr):
                 conditions += f"{self.column_names[i + 1]} = {attr}"
@@ -72,7 +75,7 @@ class Table:
                 conditions += f"{self.column_names[i + 1]} = '{attr}'"
             if i < len(attrs) - 1:
                 conditions += ' AND '
-        return self.adapter.select(self.table_name, (self.column_names[0],), conditions=conditions,limit=1)[0][0]
+        return self.adapter.select(self.table_name, (self.column_names[0],), conditions=conditions, limit=1)[0][0]
 
     def select_columns(self, columns: tuple):
         return self.adapter.select(self.table_name, columns)
@@ -83,7 +86,8 @@ class Table:
     def update_var_attrs(self, values: Union[list, tuple]):
         for i in range(1, len(self.column_names)):
             column = self.column_names[i]
-            if column in self.columns_var_attrs and values[i - 1] \
+            val = TypeIdentifier.identify_parse(values[i - 1])
+            if column in self.columns_var_attrs and val \
                     not in self.columns_var_attrs[column]:
                 self.columns_var_attrs[column].append(values[i - 1])
 
@@ -138,7 +142,7 @@ class ProductsTable(Table):
 
     def select_last_id(self):
         data = self.select_last(self.column_names[0])
-        self.emp_id_to_name(data)
+        data = self.emp_id_to_name(data)
         return data
 
     def emp_name_to_id(self, data: Union[tuple, list]):

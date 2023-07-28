@@ -1,5 +1,7 @@
 from typing import Literal
 
+import win32api
+
 from misc import SettingsFileManager
 from tables import *
 from widgets import *
@@ -22,6 +24,8 @@ class AddDBRecordDialogue(tk.Toplevel):
     def _preload_build(self):
         value_entries = []
         for attr in self.pre_load_vals:
+            if attr == 'None':
+                attr = None
             var = tk.StringVar(value=attr)
             entry = tk.Entry(self, textvariable=var)
             value_entries.append(entry)
@@ -73,18 +77,16 @@ class AddProductRecordDialogue(AddDBRecordDialogue):
                 data.append(None)
         try:
             self.table.emp_name_to_id(data)
-            laid_id = data[5]
-            rolled_id = data[6]
         except NameError as ex:
             print(ex)
             MessageBox(self.parent, 'Поля не заполнены')
             self.destroy()
             return
 
-        db_add = self.table.add(data[:5] + [laid_id, rolled_id])
+        db_add = self.table.add(data)
         if db_add:
             self.parent.data_grid.add_row(self.table.select_last_id())
-            self.table.update_var_attrs(data)
+            self.table.update_var_attrs(self.table.emp_id_to_name(data))
         else:
             MessageBox(self.parent, 'Введенные данные имеют неверный формат или не заполнены поля')
         self.destroy()
@@ -228,6 +230,7 @@ class SQLSettingsDialogue(SettingsDialogue):
 class ReadBarCodeDialogue(tk.Toplevel):
     def __init__(self, parent, table: ProductsTable, mode: Literal['ADD', 'DELETE']):
         super().__init__(parent)
+        win32api.LoadKeyboardLayout('00000409', 1)
         self.parent = parent
         self.mode = mode
         self.table = table

@@ -4,6 +4,7 @@ from tkinter import ttk
 import re
 import datetime
 
+from misc import TypeIdentifier
 from tables import Table
 
 
@@ -69,13 +70,13 @@ class DataGridView(tk.Frame):
     def sort_data(self, col, reverse):
         data = [(self.table_gui.set(child, col), child) for child in self.table_gui.get_children('')]
         data_vals = [x[0] for x in data]
-
-        if all(re.match('\d{4}-\d{2}-\d{2}', i) for i in data_vals):
-            data.sort(reverse=reverse, key=lambda x: datetime.datetime.strptime(x[0], '%Y-%m-%d'))
-        elif all(re.match('\d+', i) for i in data_vals):
-            data.sort(reverse=reverse, key=lambda x: int(x[0]))
-        else:
-            data.sort(reverse=reverse)
+        data.sort(reverse=reverse,key= lambda x: TypeIdentifier.identify_parse(x[0]))
+        # if all(re.match('\d{4}-\d{2}-\d{2}', i) for i in data_vals):
+        #     data.sort(reverse=reverse, key=lambda x: datetime.datetime.strptime(x[0], '%Y-%m-%d'))
+        # elif all(re.match('\d+', i) for i in data_vals):
+        #     data.sort(reverse=reverse, key=lambda x: int(x[0]))
+        # else:
+        #     data.sort(reverse=reverse)
         for index, (val, child) in enumerate(data):
             self.table_gui.move(child, '', index)
 

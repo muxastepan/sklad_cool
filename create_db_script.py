@@ -1,6 +1,6 @@
 import psycopg2
 
-conn = psycopg2.connect(dbname="testdb", user="postgres", password="12345")
+conn = psycopg2.connect(dbname="SKLAD", user="postgres", password="admin")
 
 cur = conn.cursor()
 
@@ -8,7 +8,7 @@ cur = conn.cursor()
 cur.execute('''
 CREATE TABLE IF NOT EXISTS employees
 (
-    employee_id INT GENERATED ALWAYS AS IDENTITY,
+    employee_id SERIAL,
     employee_name VARCHAR NOT NULL,
     PRIMARY KEY(employee_id)
 );
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS employees
 cur.execute('''
 CREATE TABLE IF NOT EXISTS products
 (
-    product_id INT GENERATED ALWAYS AS IDENTITY,
+    product_id SERIAL,
     product_size INT NOT NULL,
     product_type VARCHAR NOT NULL,
     product_subtype VARCHAR,
