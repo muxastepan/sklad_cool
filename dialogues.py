@@ -1,5 +1,6 @@
 from typing import Literal
 
+import psycopg2.errors
 import win32api
 
 from misc import SettingsFileManager
@@ -239,14 +240,24 @@ class ReadBarCodeDialogue(tk.Toplevel):
 
     def add(self):
         data = self.bar_code_entry.get()
-        attrs = DataMatrixReader.read(data)
-        self.table.emp_id_to_name(attrs)
+        try:
+            attrs = DataMatrixReader.read(data)
+            self.table.emp_id_to_name(attrs)
+        except ValueError:
+            MessageBox(self.parent, 'Неверный код')
+            return
         AddProductRecordDialogue(self.parent, self.table, attrs).show()
 
     def delete(self):
         data = self.bar_code_entry.get()
-        attrs = DataMatrixReader.read(data)
-        id_to_del = self.table.find_id(attrs)
+        try:
+            attrs = DataMatrixReader.read(data)
+            id_to_del, last_prod = self.table.find_id(attrs)
+        except ValueError:
+            MessageBox(self.parent, 'Неверный код')
+            return
+        if last_prod:
+            DataMatrixReader.delete_matrix(f"matrix\\{''.join(str(i) for i in attrs)}.png")
         self.table.remove(self.table.column_names[0], id_to_del)
         self.parent.data_grid.delete_row(id_to_del)
 

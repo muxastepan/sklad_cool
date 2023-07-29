@@ -1,6 +1,6 @@
 import re
 from typing import Union
-
+import datetime
 from misc import TypeIdentifier
 from sql_adapter import Adapter
 from data_matrix import DataMatrixReader
@@ -67,6 +67,10 @@ class Table:
         for i, attr in enumerate(attrs):
             if attr == 'None':
                 conditions += f"{self.column_names[i + 1]} IS NULL"
+            elif type(attr) == int:
+                conditions += f"{self.column_names[i + 1]} = {attr}"
+            elif type(attr) == datetime.date:
+                conditions += f"{self.column_names[i + 1]} = '{attr}'"
             elif re.match('\d{4}-\d{2}-\d{2}', attr):
                 conditions += f"{self.column_names[i + 1]} = '{attr}'"
             elif re.match('\d+', attr):
@@ -75,13 +79,26 @@ class Table:
                 conditions += f"{self.column_names[i + 1]} = '{attr}'"
             if i < len(attrs) - 1:
                 conditions += ' AND '
-        return self.adapter.select(self.table_name, (self.column_names[0],), conditions=conditions, limit=1)[0][0]
+        try:
+            res = self.adapter.select(self.table_name, (self.column_names[0],), conditions=conditions)
+        except ValueError:
+            raise ValueError
+        last_prod = False
+        if len(res) == 1:
+            last_prod = True
+        try:
+            return res[0][0], last_prod
+        except IndexError:
+            raise ValueError
 
     def select_columns(self, columns: tuple):
         return self.adapter.select(self.table_name, columns)
 
     def select_where(self, columns: tuple, conditions: str):
         return self.adapter.select(self.table_name, columns, conditions=conditions)
+
+    def select_id(self, rec_id: str, columns: tuple):
+        return self.select_where(columns, conditions=f'{self.column_names[0]} = {rec_id}')[0]
 
     def update_var_attrs(self, values: Union[list, tuple]):
         for i in range(1, len(self.column_names)):
@@ -137,12 +154,14 @@ class ProductsTable(Table):
         res_data = []
         for rec in data:
             rec = self.emp_id_to_name(rec)
+            rec[5] = datetime.datetime.strftime(rec[5], '%d.%m.%Y')
             res_data.append(rec)
         return res_data
 
     def select_last_id(self):
         data = self.select_last(self.column_names[0])
         data = self.emp_id_to_name(data)
+        data[5] = datetime.datetime.strftime(data[5], '%d.%m.%Y')
         return data
 
     def emp_name_to_id(self, data: Union[tuple, list]):

@@ -50,7 +50,11 @@ class Adapter:
                 query += ' DESC'
         if limit:
             query += f' LIMIT {limit}'
-        self.cur.execute(query)
+        try:
+            self.cur.execute(query)
+        except psycopg2.DataError:
+            self.con.rollback()
+            raise ValueError
         data = self.cur.fetchall()
         self.con.commit()
         return data

@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-
+from data_matrix import DataMatrixReader
 import re
 import datetime
 
@@ -13,8 +13,8 @@ class RestartQuestionBox(tk.Toplevel):
         super().__init__(parent)
         self.parent = parent
         tk.Label(self, text=text).pack(side=tk.TOP)
-        tk.Button(self, text='Нет', command=self.destroy,width=20).pack(side=tk.LEFT, padx=20)
-        tk.Button(self, text='Да', command=self.restart,width=20).pack(side=tk.RIGHT, padx=20)
+        tk.Button(self, text='Нет', command=self.destroy, width=20).pack(side=tk.LEFT, padx=20)
+        tk.Button(self, text='Да', command=self.restart, width=20).pack(side=tk.RIGHT, padx=20)
 
     def restart(self):
         self.parent.restart()
@@ -23,8 +23,13 @@ class RestartQuestionBox(tk.Toplevel):
 class MessageBox(tk.Toplevel):
     def __init__(self, parent, text):
         super().__init__(parent)
+        self.focus()
         tk.Label(self, text=text).pack()
         tk.Button(self, text='OK', command=self.destroy).pack()
+        self.bind('<Return>', self.close_event)
+
+    def close_event(self, event):
+        self.destroy()
 
 
 class DataGridView(tk.Frame):
@@ -46,17 +51,24 @@ class DataGridView(tk.Frame):
         column = int(self.table_gui.identify_column(event.x).replace('#', '')) - 1
         edit_frame = tk.Toplevel(self)
         edit_entry = tk.Entry(edit_frame)
+        edit_entry.focus()
         edit_entry.pack()
 
         def save_edit():
             data = edit_entry.get()
             if data:
                 rec_id = self.table_gui.item(item, 'values')[0]
+                old_rec = self.table.select_id(rec_id, self.table.column_names[1:])
+                _, last_prod = self.table.find_id(old_rec)
                 db_edit = self.table.edit_one(self.table.column_names[column], data, rec_id)
                 if not db_edit:
                     MessageBox(self, 'Введенные данные имеют неверный формат')
                 else:
                     self.table_gui.set(item, column=column, value=data)
+                    rec = self.table.select_id(rec_id, self.table.column_names[1:])
+                    DataMatrixReader.create_matrix(rec)
+                    if last_prod:
+                        DataMatrixReader.delete_matrix(f"matrix\\{''.join(str(i) for i in rec)}.png")
 
             edit_frame.destroy()
 
@@ -69,14 +81,7 @@ class DataGridView(tk.Frame):
 
     def sort_data(self, col, reverse):
         data = [(self.table_gui.set(child, col), child) for child in self.table_gui.get_children('')]
-        data_vals = [x[0] for x in data]
-        data.sort(reverse=reverse,key= lambda x: TypeIdentifier.identify_parse(x[0]))
-        # if all(re.match('\d{4}-\d{2}-\d{2}', i) for i in data_vals):
-        #     data.sort(reverse=reverse, key=lambda x: datetime.datetime.strptime(x[0], '%Y-%m-%d'))
-        # elif all(re.match('\d+', i) for i in data_vals):
-        #     data.sort(reverse=reverse, key=lambda x: int(x[0]))
-        # else:
-        #     data.sort(reverse=reverse)
+        data.sort(reverse=reverse, key=lambda x: TypeIdentifier.identify_parse(x[0]))
         for index, (val, child) in enumerate(data):
             self.table_gui.move(child, '', index)
 
@@ -108,7 +113,7 @@ class DataGridView(tk.Frame):
         self._row_count += 1
         self.table_gui.insert('', tk.END, values=data)
 
-    def delete_row(self,data):
+    def delete_row(self, data):
         self._row_count -= 1
         rows = self.table_gui.get_children()
         for row in rows:
