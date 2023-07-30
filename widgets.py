@@ -1,11 +1,11 @@
+import datetime
 import tkinter as tk
 from tkinter import ttk
-from data_matrix import DataMatrixReader
-import re
-import datetime
+from typing import Callable
 
+from data_matrix import DataMatrixReader
 from misc import TypeIdentifier
-from tables import Table
+from tables import Table, ProductsTable
 
 
 class RestartQuestionBox(tk.Toplevel):
@@ -28,13 +28,15 @@ class MessageBox(tk.Toplevel):
         tk.Button(self, text='OK', command=self.destroy).pack()
         self.bind('<Return>', self.close_event)
 
-    def close_event(self, event):
+    def close_event(self, event: tk.Event):
         self.destroy()
 
 
 class DataGridView(tk.Frame):
-    def __init__(self, parent, table: Table):
+
+    def __init__(self, parent, table: Table, printer_func: Callable = None):
         super().__init__(parent)
+        self.printer_func = printer_func
         self.table = table
         self.data = self.table.select_all()
         self.y_scroll_bar = tk.Scrollbar(self)
@@ -42,37 +44,72 @@ class DataGridView(tk.Frame):
         self.table_gui = ttk.Treeview(self)
         self._build_table()
 
-    def set_cell_value(self, event: tk.Event):
-        item = self.table_gui.selection()
-        if not item:
+    def show_rec_menu(self, event: tk.Event):
+        def edit():
+            self.set_cell_value(event)
+
+        def delete():
+            self.delete_record(event)
+
+        menu = tk.Menu(self.table_gui, tearoff=0)
+        menu.add_command(label='Изменить', command=edit)
+        menu.add_command(label='Удалить', command=delete)
+        menu.add_command(label='Печать', command=self.print_selected_items)
+        menu.post(event.x_root, event.y_root)
+
+    def print_selected_items(self):
+        items = self.table_gui.selection()
+        if not items:
             return
-        else:
-            item = item[0]
-        column = int(self.table_gui.identify_column(event.x).replace('#', '')) - 1
+        if not self.printer_func:
+            MessageBox(self, text='Метод печати не реализован для этой таблицы')
+            return
+        paths = []
+        for item in items:
+            data = self.table_gui.item(item)['values'][1:]
+            if self.table.table_name == 'products':
+                data = self.table.emp_name_to_id(data)
+                data[4] = datetime.datetime.strptime(data[4], '%d.%m.%Y').date()
+
+            path = f"matrix\\{''.join(str(i) for i in data)}.png"
+            paths.append(path)
+        self.printer_func(paths)
+
+    def set_cell_value(self, event: tk.Event):
+        items = self.table_gui.selection()
+        if not items:
+            return
         edit_frame = tk.Toplevel(self)
         edit_entry = tk.Entry(edit_frame)
         edit_entry.focus()
         edit_entry.pack()
+        column = int(self.table_gui.identify_column(event.x).replace('#', '')) - 1
 
         def save_edit():
-            data = edit_entry.get()
-            if data:
+            for item in items:
+                data = edit_entry.get()
+                if not data:
+                    data = None
                 rec_id = self.table_gui.item(item, 'values')[0]
                 old_rec = self.table.select_id(rec_id, self.table.column_names[1:])
                 _, last_prod = self.table.find_id(old_rec)
                 db_edit = self.table.edit_one(self.table.column_names[column], data, rec_id)
                 if not db_edit:
                     MessageBox(self, 'Введенные данные имеют неверный формат')
+                    break
                 else:
-                    self.table_gui.set(item, column=column, value=data)
+                    self.table_gui.set(item, column=column, value=data if data else 'None')
                     rec = self.table.select_id(rec_id, self.table.column_names[1:])
                     DataMatrixReader.create_matrix(rec)
                     if last_prod:
-                        DataMatrixReader.delete_matrix(f"matrix\\{''.join(str(i) for i in rec)}.png")
-
+                        path = f"matrix\\{''.join(str(i) for i in old_rec)}.png"
+                        try:
+                            DataMatrixReader.delete_matrix(path)
+                        except FileNotFoundError:
+                            MessageBox(self, f'Матрицы {path} не существует')
             edit_frame.destroy()
 
-        def save_edit_return(event):
+        def save_edit_return(event: tk.Event):
             return save_edit()
 
         submit_button = tk.Button(edit_frame, text='OK', command=save_edit)
@@ -107,7 +144,30 @@ class DataGridView(tk.Frame):
         self.x_scroll_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
         self.table_gui.bind("<Double-Button-1>", self.set_cell_value)
+        self.table_gui.bind("<Button-3>", self.show_rec_menu)
         self.table_gui.pack(fill=tk.BOTH)
+
+    def delete_record(self, event: tk.Event):
+        items = self.table_gui.selection()
+        if not items:
+            return
+        for item in items:
+            data = self.table_gui.item(item)['values'][1:]
+            if self.table.table_name == 'products':
+                data = self.table.emp_name_to_id(data)
+                data[4] = datetime.datetime.strptime(data[4], '%d.%m.%Y').date()
+                id_to_del, last_prod = self.table.find_id(data)
+            else:
+                raise NotImplementedError
+            if last_prod:
+                path = f"matrix\\{''.join(str(i) for i in data)}.png"
+                try:
+                    DataMatrixReader.delete_matrix(path)
+                except FileNotFoundError:
+                    MessageBox(self, f'Матрицы {path} не существует')
+
+            self.table.remove(self.table.column_names[0], id_to_del)
+            self.delete_row(id_to_del)
 
     def add_row(self, data):
         self._row_count += 1

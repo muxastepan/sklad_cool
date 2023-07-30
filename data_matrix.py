@@ -1,5 +1,6 @@
 import os
 import re
+import threading
 
 import pylibdmtx.pylibdmtx as dmtx
 from PIL import Image
@@ -16,6 +17,23 @@ class DataMatrixReader:
         if not attrs:
             raise ValueError
         return attrs
+
+    @staticmethod
+    def print_matrix(paths):
+        root = Image.new('RGB', (550, 400), '#FFFFFF')
+        x = 50
+        y = 50
+        for path in paths:
+            im = Image.open(path)
+            norm_img = im.resize((30, 30))
+            root.paste(norm_img, (x, y))
+            x += 40
+            if x >= 500:
+                x = 0
+                y += 40
+
+        root.save('root.png')
+        os.startfile('root.png', 'print')
 
     @staticmethod
     def create_matrix(data: Union[list, tuple]):

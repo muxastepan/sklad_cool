@@ -1,11 +1,11 @@
 from typing import Literal
 
-import psycopg2.errors
+import tkinter as tk
 import win32api
 
 from misc import SettingsFileManager
 from tables import *
-from widgets import *
+from widgets import AutoCompletionCombobox, MessageBox, RestartQuestionBox
 
 
 class AddDBRecordDialogue(tk.Toplevel):
@@ -78,8 +78,7 @@ class AddProductRecordDialogue(AddDBRecordDialogue):
                 data.append(None)
         try:
             self.table.emp_name_to_id(data)
-        except NameError as ex:
-            print(ex)
+        except NameError:
             MessageBox(self.parent, 'Поля не заполнены')
             self.destroy()
             return
@@ -257,7 +256,10 @@ class ReadBarCodeDialogue(tk.Toplevel):
             MessageBox(self.parent, 'Неверный код')
             return
         if last_prod:
-            DataMatrixReader.delete_matrix(f"matrix\\{''.join(str(i) for i in attrs)}.png")
+            try:
+                DataMatrixReader.delete_matrix(f"matrix\\{''.join(str(i) for i in attrs)}.png")
+            except FileNotFoundError:
+                MessageBox(self, 'Матрицы не существует')
         self.table.remove(self.table.column_names[0], id_to_del)
         self.parent.data_grid.delete_row(id_to_del)
 

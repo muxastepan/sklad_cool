@@ -1,7 +1,28 @@
-import tkinter as tk
 from dialogues import *
 from widgets import *
 from tables import *
+
+
+class SettingsMenu(tk.Menu):
+    def __init__(self, parent, settings):
+        super().__init__(parent, tearoff=0)
+        self.parent = parent
+        self.settings = settings
+        self.add_command(label='Окно...', command=self.show_window_settings)
+        self.add_command(label='SQL...', command=self.show_sql_settings)
+
+    def show_window_settings(self):
+        WindowSettingsDialogue(self.parent, self.settings).show()
+
+    def show_sql_settings(self):
+        SQLSettingsDialogue(self.parent, self.settings).show()
+
+
+class Menu(tk.Menu):
+    def __init__(self, parent, child_menu: tk.Menu, text: str):
+        super().__init__(parent)
+        self.child_menu = child_menu
+        self.add_cascade(label=text, menu=self.child_menu)
 
 
 class TabFrame(tk.Frame):
@@ -27,6 +48,7 @@ class StorageTabFrame(TabFrame):
         self.add_bar_code_btn = tk.Button(self, text='Добавить по штрих-коду', command=self.show_add_bar_code_dialogue)
         self.delete_bar_code_btn = tk.Button(self, text='Удалить по штрих-коду',
                                              command=self.show_delete_bar_code_dialogue)
+        self.data_grid = DataGridView(self, self.table, printer_func=DataMatrixReader.print_matrix)
 
     def show_add_dialogue(self):
         AddProductRecordDialogue(self, self.table).show()
@@ -49,25 +71,3 @@ class EmployeeTabFrame(TabFrame):
 
     def show_add_dialogue(self):
         AddEmployeeRecordDialogue(self, self.table).show()
-
-
-class SettingsMenu(tk.Menu):
-    def __init__(self, parent, settings):
-        super().__init__(parent, tearoff=0)
-        self.parent = parent
-        self.settings = settings
-        self.add_command(label='Окно...', command=self.show_window_settings)
-        self.add_command(label='SQL...', command=self.show_sql_settings)
-
-    def show_window_settings(self):
-        WindowSettingsDialogue(self.parent, self.settings).show()
-
-    def show_sql_settings(self):
-        SQLSettingsDialogue(self.parent, self.settings).show()
-
-
-class Menu(tk.Menu):
-    def __init__(self, parent, settings_menu: SettingsMenu):
-        super().__init__(parent)
-        self.settings_menu = settings_menu
-        self.add_cascade(label='Настройки', menu=self.settings_menu)

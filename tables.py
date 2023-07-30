@@ -65,7 +65,7 @@ class Table:
     def find_id(self, attrs: Union[list, tuple]):
         conditions = ''
         for i, attr in enumerate(attrs):
-            if attr == 'None':
+            if not attr or attr == 'None':
                 conditions += f"{self.column_names[i + 1]} IS NULL"
             elif type(attr) == int:
                 conditions += f"{self.column_names[i + 1]} = {attr}"
@@ -128,10 +128,16 @@ class EmployeesTable(Table):
             self.add((employee_name,))
             self.update_var_attrs((employee_name,))
             res_id = self.select_where((self.column_names[0],), f"{self.column_names[1]} = '{employee_name}'")
-        return res_id[0][0]
+        try:
+            return res_id[0][0]
+        except IndexError:
+            raise ValueError
 
     def id_to_name(self, employee_id):
-        return self.select_where((self.column_names[1],), f"{self.column_names[0]} = '{employee_id}'")[0][0]
+        try:
+            return self.select_where((self.column_names[1],), f"{self.column_names[0]} = '{employee_id}'")[0][0]
+        except IndexError:
+            raise ValueError
 
 
 class ProductsTable(Table):
@@ -173,6 +179,8 @@ class ProductsTable(Table):
         elif len(data) == 7:
             data[5] = self.related_table.name_to_id(data[5])
             data[6] = self.related_table.name_to_id(data[6])
+        else:
+            raise ValueError
         return data
 
     def emp_id_to_name(self, data: Union[tuple, list]):
@@ -184,4 +192,6 @@ class ProductsTable(Table):
         elif len(data) == 7:
             data[5] = self.related_table.id_to_name(data[5])
             data[6] = self.related_table.id_to_name(data[6])
+        else:
+            raise ValueError
         return data

@@ -32,7 +32,7 @@ class MainFrame(tk.Tk):
         os.execl(program, program, *sys.argv)
 
     def _build(self):
-        self.menu = Menu(self, SettingsMenu(self, self.settings))
+        self.menu = Menu(self, SettingsMenu(self, self.settings), 'Настройки')
         self.config(menu=self.menu)
 
         self.tabs = ttk.Notebook(self)
@@ -56,7 +56,6 @@ class MainFrame(tk.Tk):
 if __name__ == '__main__':
     app = MainFrame()
     app.run()
-# TODO удаление на пкм в таблице(меню)
-# TODO замена матрицы при изменении записи доделать
-# TODO Обработать исключения протестировать
+
+# TODO печать
 # TODO Засунуть проект в exe файл
