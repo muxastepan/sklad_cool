@@ -157,14 +157,16 @@ class DataGridView(tk.Frame):
                 data = self.table.emp_name_to_id(data)
                 data[4] = datetime.datetime.strptime(data[4], '%d.%m.%Y').date()
                 id_to_del, last_prod = self.table.find_id(data)
+                if last_prod:
+                    path = f"matrix\\{''.join(str(i) for i in data)}.png"
+                    try:
+                        DataMatrixReader.delete_matrix(path)
+                    except FileNotFoundError:
+                        MessageBox(self, f'Матрицы {path} не существует')
+            elif self.table.table_name == 'employees':
+                id_to_del, _ = self.table.find_id(data)
             else:
                 raise NotImplementedError
-            if last_prod:
-                path = f"matrix\\{''.join(str(i) for i in data)}.png"
-                try:
-                    DataMatrixReader.delete_matrix(path)
-                except FileNotFoundError:
-                    MessageBox(self, f'Матрицы {path} не существует')
 
             self.table.remove(self.table.column_names[0], id_to_del)
             self.delete_row(id_to_del)

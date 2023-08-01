@@ -72,8 +72,10 @@ class AddProductRecordDialogue(AddDBRecordDialogue):
         data = []
         for i, entry in enumerate(self.value_entries):
             inp = entry.get()
-            if inp:
-                data.append(entry.get())
+            if re.match(r'\d{2}\.\d{2}\.\d{4}', inp):
+                data.append(datetime.datetime.strptime(inp, '%d.%m.%Y').date())
+            elif inp:
+                data.append(inp)
             else:
                 data.append(None)
         try:
@@ -102,7 +104,7 @@ class AddProductRecordDialogue(AddDBRecordDialogue):
                 else:
                     entry = AutoCompletionCombobox(self)
             else:
-                date = tk.StringVar(value=str(datetime.date.today()))
+                date = tk.StringVar(value=str(datetime.date.today().strftime('%d.%m.%Y')))
                 entry = tk.Entry(self, textvariable=date)
             value_entries.append(entry)
         return value_entries
