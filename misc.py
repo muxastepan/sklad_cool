@@ -21,14 +21,13 @@ class TypeIdentifier:
     def identify_parse(value):
         if not value:
             return None
+        elif value == 'None':
+            return None
         elif type(value) == int:
             return value
         elif type(value) == datetime.date:
-            return value
-        elif all(re.match(r'\d{4}-\d{2}-\d{2}', i) for i in value):
-            return datetime.datetime.strptime(value, '%d.%m.%Y')
+            return value.strftime('%d.%m.%Y')
         elif all(re.match(r'\d+', i) for i in value):
             return int(value)
         else:
             return str(value)
-

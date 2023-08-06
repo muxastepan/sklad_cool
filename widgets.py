@@ -1,23 +1,49 @@
-import datetime
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable
+from typing import Callable, Iterable
 
-from data_matrix import DataMatrixReader
+from sql_adapter import *
 from misc import TypeIdentifier
-from tables import Table, ProductsTable
+from tables import Table, TableException, ProdTableAttrNotFoundException
 
 
-class RestartQuestionBox(tk.Toplevel):
-    def __init__(self, parent, text):
+class QuestionBox(tk.Toplevel):
+    def __init__(self, parent, text: str, callback: Callable, *args):
         super().__init__(parent)
+        self.callback = callback
+        self.args = args
         self.parent = parent
         tk.Label(self, text=text).pack(side=tk.TOP)
         tk.Button(self, text='Нет', command=self.destroy, width=20).pack(side=tk.LEFT, padx=20)
-        tk.Button(self, text='Да', command=self.restart, width=20).pack(side=tk.RIGHT, padx=20)
+        tk.Button(self, text='Да', command=self.run_callback, width=20).pack(side=tk.RIGHT, padx=20)
 
-    def restart(self):
-        self.parent.restart()
+    def run_callback(self):
+        if self.args:
+            self.callback(self.args)
+        else:
+            self.callback()
+        self.destroy()
+
+
+class RestartQuestionBox(QuestionBox):
+    def __init__(self, parent, text):
+        super().__init__(parent, text, parent.restart)
+
+
+class AddAttrQuestionBox(QuestionBox):
+    def __init__(self, parent, text, column_ind, *args):
+        if column_ind == 5 or column_ind == 6:
+            callback = parent.table.related_table.add
+        else:
+            callback = parent.table.attr_tables[column_ind].add
+        super().__init__(parent, text, callback, *args)
+
+    def run_callback(self):
+        try:
+            super().run_callback()
+        except AdapterException as ex:
+            MessageBox(self.parent, ex)
+            self.destroy()
 
 
 class MessageBox(tk.Toplevel):
@@ -34,15 +60,32 @@ class MessageBox(tk.Toplevel):
 
 class DataGridView(tk.Frame):
 
-    def __init__(self, parent, table: Table, printer_func: Callable = None):
+    def __init__(self, parent, table: Table, editable: bool = False, deletable: bool = False,
+                 preload_from_table: bool = False, straight_mode: bool = True):
         super().__init__(parent)
-        self.printer_func = printer_func
+        self.straight_mode = straight_mode
+        self.preload_from_table = preload_from_table
+        self.deletable = deletable
+        self.editable = editable
         self.table = table
-        self.data = self.table.select_all()
+        if self.preload_from_table:
+            self.data = self.table.select_all()
+        else:
+            self.data = []
         self.y_scroll_bar = tk.Scrollbar(self)
         self.x_scroll_bar = tk.Scrollbar(self, orient=tk.HORIZONTAL)
         self.table_gui = ttk.Treeview(self)
         self._build_table()
+
+    def update_table_gui(self):
+        for row in self.data:
+            self.delete_row(row[0])
+        if self.preload_from_table:
+            self.data = self.table.select_all()
+        else:
+            self.data = []
+        for row in self.data:
+            self.add_row(row)
 
     def show_rec_menu(self, event: tk.Event):
         def edit():
@@ -52,61 +95,52 @@ class DataGridView(tk.Frame):
             self.delete_record(event)
 
         menu = tk.Menu(self.table_gui, tearoff=0)
-        menu.add_command(label='Изменить', command=edit)
-        menu.add_command(label='Удалить', command=delete)
-        menu.add_command(label='Печать', command=self.print_selected_items)
+
+        if self.editable:
+            menu.add_command(label='Изменить', command=edit)
+        if self.deletable:
+            menu.add_command(label='Удалить', command=delete)
         menu.post(event.x_root, event.y_root)
-
-    def print_selected_items(self):
-        items = self.table_gui.selection()
-        if not items:
-            return
-        if not self.printer_func:
-            MessageBox(self, text='Метод печати не реализован для этой таблицы')
-            return
-        paths = []
-        for item in items:
-            data = self.table_gui.item(item)['values'][1:]
-            if self.table.table_name == 'products':
-                data = self.table.emp_name_to_id(data)
-                data[4] = datetime.datetime.strptime(data[4], '%d.%m.%Y').date()
-
-            path = f"matrix\\{''.join(str(i) for i in data)}.png"
-            paths.append(path)
-        self.printer_func(paths)
 
     def set_cell_value(self, event: tk.Event):
         items = self.table_gui.selection()
         if not items:
             return
+        column = int(self.table_gui.identify_column(event.x).replace('#', '')) - 1
         edit_frame = tk.Toplevel(self)
-        edit_entry = tk.Entry(edit_frame)
+        edit_entry = AutoCompletionCombobox(edit_frame,
+                                            values=[self.table_gui.item(item)['values'][column] for item in items])
         edit_entry.focus()
         edit_entry.pack()
-        column = int(self.table_gui.identify_column(event.x).replace('#', '')) - 1
 
         def save_edit():
+            data = TypeIdentifier.identify_parse(edit_entry.get())
+            if not data:
+                data = None
+            if self.straight_mode:
+                for item in items:
+                    rec_id = self.table_gui.item(item, 'values')[0]
+
+                    try:
+                        self.table.edit(self.table.column_names[column], data, rec_id)
+                    except AdapterException as ex:
+                        MessageBox(self, ex)
+                        self.table.rollback()
+                        return
+                    except ProdTableAttrNotFoundException as ex:
+                        self.table.rollback()
+                        AddAttrQuestionBox(self, f"{ex}\nДобавить этот аттрибут?", column - 1, (data,))
+                        return
+                    except TableException as ex:
+                        MessageBox(self, ex)
+                        self.table.rollback()
+                        return
+                self.table.commit()
+                self.table.update_var_attrs()
+
             for item in items:
-                data = edit_entry.get()
-                if not data:
-                    data = None
-                rec_id = self.table_gui.item(item, 'values')[0]
-                old_rec = self.table.select_id(rec_id, self.table.column_names[1:])
-                _, last_prod = self.table.find_id(old_rec)
-                db_edit = self.table.edit_one(self.table.column_names[column], data, rec_id)
-                if not db_edit:
-                    MessageBox(self, 'Введенные данные имеют неверный формат')
-                    break
-                else:
-                    self.table_gui.set(item, column=column, value=data if data else 'None')
-                    rec = self.table.select_id(rec_id, self.table.column_names[1:])
-                    DataMatrixReader.create_matrix(rec)
-                    if last_prod:
-                        path = f"matrix\\{''.join(str(i) for i in old_rec)}.png"
-                        try:
-                            DataMatrixReader.delete_matrix(path)
-                        except FileNotFoundError:
-                            MessageBox(self, f'Матрицы {path} не существует')
+                self.table_gui.set(item, column=column, value=data if data else 'Пусто')
+
             edit_frame.destroy()
 
         def save_edit_return(event: tk.Event):
@@ -134,8 +168,7 @@ class DataGridView(tk.Frame):
 
         self._row_count = 0
         for row in self.data:
-            self.table_gui.insert('', tk.END, values=row)
-            self._row_count += 1
+            self.add_row(row)
 
         self.y_scroll_bar.configure(command=self.table_gui.yview)
         self.y_scroll_bar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -143,7 +176,8 @@ class DataGridView(tk.Frame):
         self.x_scroll_bar.configure(command=self.table_gui.xview)
         self.x_scroll_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
-        self.table_gui.bind("<Double-Button-1>", self.set_cell_value)
+        if self.editable:
+            self.table_gui.bind("<Double-Button-1>", self.set_cell_value)
         self.table_gui.bind("<Button-3>", self.show_rec_menu)
         self.table_gui.pack(fill=tk.BOTH)
 
@@ -152,27 +186,28 @@ class DataGridView(tk.Frame):
         if not items:
             return
         for item in items:
-            data = self.table_gui.item(item)['values'][1:]
-            if self.table.table_name == 'products':
-                data = self.table.emp_name_to_id(data)
-                data[4] = datetime.datetime.strptime(data[4], '%d.%m.%Y').date()
-                id_to_del, last_prod = self.table.find_id(data)
-                if last_prod:
-                    path = f"matrix\\{''.join(str(i) for i in data)}.png"
-                    try:
-                        DataMatrixReader.delete_matrix(path)
-                    except FileNotFoundError:
-                        MessageBox(self, f'Матрицы {path} не существует')
-            elif self.table.table_name == 'employees':
-                id_to_del, _ = self.table.find_id(data)
-            else:
-                raise NotImplementedError
+            data = self.table_gui.item(item)['values']
+            p_key = data[0]
+            if self.straight_mode:
+                try:
+                    self.table.remove(self.table.p_key_column_name, p_key)
+                except AdapterException as ex:
+                    MessageBox(self, ex)
+                    self.table.rollback()
+                    return
+                except TableException as ex:
+                    MessageBox(self, ex)
+                    self.table.rollback()
+                    return
 
-            self.table.remove(self.table.column_names[0], id_to_del)
-            self.delete_row(id_to_del)
+                self.table.update_var_attrs()
+            self.delete_row(p_key)
 
     def add_row(self, data):
         self._row_count += 1
+        for i, val in enumerate(data):
+            if not val:
+                data[i] = 'Пусто'
         self.table_gui.insert('', tk.END, values=data)
 
     def delete_row(self, data):

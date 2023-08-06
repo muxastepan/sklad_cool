@@ -1,43 +1,36 @@
-from typing import Literal
-
 import tkinter as tk
 import win32api
 
+from data_matrix import DataMatrixReaderException, DataMatrixReader
 from misc import SettingsFileManager
 from tables import *
 from widgets import AutoCompletionCombobox, MessageBox, RestartQuestionBox
 
 
+# TODO Обработка исключений
 class AddDBRecordDialogue(tk.Toplevel):
-    def __init__(self, parent, table: Table, pre_load_vals: Union[list, tuple] = None):
+    def __init__(self, parent, table: Table, straight_mode: bool = True, temp_var_attrs: list = None):
         super().__init__(parent)
+        self.straight_mode = straight_mode
+        self.temp_var_attrs = temp_var_attrs
         self.focus()
-        self.pre_load_vals = pre_load_vals
         self.parent = parent
         self.table = table
         self.submit_button = tk.Button(self, text='Отправить', command=self.submit_close)
-        self.value_entries = self._preload_build() if self.pre_load_vals else self._build()
+        self.value_entries = self._build()
         self.bind('<Return>', self.submit_close_k_enter)
 
     def submit_close_k_enter(self, event):
         self.submit_close()
 
-    def _preload_build(self):
-        value_entries = []
-        for attr in self.pre_load_vals:
-            if attr == 'None':
-                attr = None
-            var = tk.StringVar(value=attr)
-            entry = tk.Entry(self, textvariable=var)
-            value_entries.append(entry)
-        return value_entries
-
     def _build(self):
         value_entries = []
-        for i in range(1, len(self.table.column_names)):
-            column = self.table.column_names[i]
-            entry = AutoCompletionCombobox(self, values=self.table.columns_var_attrs[
-                column] if column in self.table.columns_var_attrs else None)
+        if self.straight_mode:
+            var_attrs = self.table.var_attrs
+        else:
+            var_attrs = self.temp_var_attrs
+        for i in range(len(self.table.column_names)):
+            entry = AutoCompletionCombobox(self, values=var_attrs[i] if var_attrs else None)
             value_entries.append(entry)
         return value_entries
 
@@ -49,75 +42,44 @@ class AddDBRecordDialogue(tk.Toplevel):
                 data.append(entry.get())
             else:
                 data.append(None)
-        db_add = self.table.add(data)
-        if db_add:
-            self.table.update_var_attrs(data)
-            self.parent.data_grid.add_row(self.table.select_last_id())
+        if self.straight_mode:
+            try:
+                self.table.add(data)
+                self.parent.data_grid.add_row(data)
+                self.table.update_var_attrs()
+                self.table.commit()
+            except AdapterException as ex:
+                MessageBox(self.parent, ex)
+                self.table.rollback()
         else:
-            MessageBox(self.parent, 'Введенные данные имеют неверный формат')
+            self.parent.data_grid.add_row(data)
         self.destroy()
 
     def show(self):
-        for i in range(1, len(self.table.column_headings)):
+        for i in range(len(self.table.column_headings)):
             tk.Label(self, text=self.table.column_headings[i]).pack()
-            self.value_entries[i - 1].pack()
+            self.value_entries[i].pack()
         self.submit_button.pack()
 
 
 class AddProductRecordDialogue(AddDBRecordDialogue):
-    def __init__(self, parent, products_table: ProductsTable, pre_load_vals: Union[list, tuple] = None):
-        super().__init__(parent, products_table, pre_load_vals)
+    def __init__(self, parent, products_table: ProductsTable, temp_var_attrs: list):
+        super().__init__(parent, products_table, straight_mode=False, temp_var_attrs=temp_var_attrs)
 
     def submit_close(self):
-        data = []
-        for i, entry in enumerate(self.value_entries):
-            inp = entry.get()
-            if re.match(r'\d{2}\.\d{2}\.\d{4}', inp):
-                data.append(datetime.datetime.strptime(inp, '%d.%m.%Y').date())
-            elif inp:
-                data.append(inp)
-            else:
-                data.append(None)
-        try:
-            self.table.emp_name_to_id(data)
-        except NameError:
-            MessageBox(self.parent, 'Поля не заполнены')
-            self.destroy()
-            return
-
-        db_add = self.table.add(data)
-        if db_add:
-            self.parent.data_grid.add_row(self.table.select_last_id())
-            self.table.update_var_attrs(self.table.emp_id_to_name(data))
-        else:
-            MessageBox(self.parent, 'Введенные данные имеют неверный формат или не заполнены поля')
-        self.destroy()
-
-    def _build(self):
-        value_entries = []
-        for i in range(1, len(self.table.column_names)):
-            column = self.table.column_names[i]
-            if i != 5:
-                if column in self.table.columns_var_attrs:
-                    entry = AutoCompletionCombobox(self, values=[item for item in self.table.columns_var_attrs[
-                        column] if item])
-                else:
-                    entry = AutoCompletionCombobox(self)
-            else:
-                date = tk.StringVar(value=str(datetime.date.today().strftime('%d.%m.%Y')))
-                entry = tk.Entry(self, textvariable=date)
-            value_entries.append(entry)
-        return value_entries
+        super().submit_close()
+        self.parent.update_temp_var_attrs()
 
 
 class AddEmployeeRecordDialogue(AddDBRecordDialogue):
-    def __init__(self, parent, employees_table: EmployeesTable, pre_load_vals: Union[list, tuple] = None):
-        super().__init__(parent, employees_table, pre_load_vals)
+    def __init__(self, parent, employees_table: EmployeesTable):
+        super().__init__(parent, employees_table)
 
 
 class SettingsDialogue(tk.Toplevel):
     def __init__(self, parent, settings):
         super().__init__(parent)
+        self.parent = parent
         self.settings = settings
         self.cancel_button = tk.Button(self, text='Отмена', command=self.cancel)
         self.save_button = tk.Button(self, text='Применить', command=self.submit)
@@ -139,10 +101,29 @@ class SettingsDialogue(tk.Toplevel):
         self.destroy()
 
 
+class MatrixFolderPathDialogue(SettingsDialogue):
+    def __init__(self, parent, settings):
+        super().__init__(parent, settings)
+        self.path = tk.StringVar(value=self.settings['matrix_folder_path'])
+        self.frame = tk.LabelFrame(self)
+        self.entry = tk.Entry(self.frame, textvariable=self.path)
+
+    def show(self):
+        self.frame.pack(padx=10, pady=10)
+        tk.Label(self.frame, text='Путь к папке с матрицами:').pack(padx=10, pady=10)
+        self.entry.pack(padx=10, pady=10)
+        super().show()
+
+    def submit(self):
+        path = self.path.get()
+        self.settings['matrix_folder_path'] = path
+        SettingsFileManager.write_settings('settings', self.settings)
+        self.parent.matrix_path = path
+
+
 class WindowSettingsDialogue(SettingsDialogue):
     def __init__(self, parent, settings):
         super().__init__(parent, settings)
-        self.parent = parent
         self.width = tk.StringVar(value=self.settings['window_settings']['width'])
         self.height = tk.StringVar(value=self.settings['window_settings']['height'])
         self.width_frame = tk.LabelFrame(self)
@@ -167,15 +148,10 @@ class WindowSettingsDialogue(SettingsDialogue):
         SettingsFileManager.write_settings('settings', self.settings)
         self.parent.geometry(f'{width}x{height}')
 
-    def submit_close(self):
-        self.submit()
-        self.destroy()
-
 
 class SQLSettingsDialogue(SettingsDialogue):
     def __init__(self, parent, settings):
         super().__init__(parent, settings)
-        self.parent = parent
         self.dbname = tk.StringVar(value=self.settings['sql_settings']['db_name'])
         self.host = tk.StringVar(value=self.settings['sql_settings']['host'])
         self.port = tk.StringVar(value=self.settings['sql_settings']['port'])
@@ -207,10 +183,6 @@ class SQLSettingsDialogue(SettingsDialogue):
 
         RestartQuestionBox(self.parent, 'Изменения вступят в силу после перезапуска приложения.\n Перезапустить?')
 
-    def submit_close(self):
-        self.submit()
-        self.destroy()
-
     def show(self):
         self.user_frame.pack()
         tk.Label(self.user_frame, text='Имя пользователя').pack()
@@ -229,47 +201,83 @@ class SQLSettingsDialogue(SettingsDialogue):
         super().show()
 
 
+class TableAttrsSettingsDialogue(SettingsDialogue):
+    def __init__(self, parent, settings):
+        super().__init__(parent, settings)
+        self.state = tk.BooleanVar(value=self.settings['add_attrs_if_not_exists'])
+        self.frame = tk.LabelFrame(self)
+        self.check = tk.Checkbutton(self.frame, variable=self.state)
+
+    def show(self):
+        self.frame.pack(padx=10, pady=10)
+        tk.Label(self.frame, text='Добавлять аттрибут, если его не существует:').pack(padx=10, pady=10, side=tk.LEFT)
+        self.check.pack(padx=10, pady=10, side=tk.RIGHT)
+        super().show()
+
+    def submit(self):
+        res_state = self.state.get()
+        self.settings['add_attrs_if_not_exists'] = res_state
+        SettingsFileManager.write_settings('settings', self.settings)
+
+
+class ProdTableSettingsDialogue(SettingsDialogue):
+    def __init__(self, parent, settings):
+        super().__init__(parent, settings)
+        self.deletable = tk.BooleanVar(value=self.settings['prod_table_settings']['deletable'])
+        self.editable = tk.BooleanVar(value=self.settings['prod_table_settings']['editable'])
+        self.del_frame = tk.LabelFrame(self)
+        self.edit_frame = tk.LabelFrame(self)
+        self.del_check = tk.Checkbutton(self.del_frame, variable=self.deletable)
+        self.edit_check = tk.Checkbutton(self.edit_frame, variable=self.editable)
+
+    def show(self):
+        self.del_frame.pack(padx=10, pady=10, fill=tk.X)
+        self.edit_frame.pack(padx=10, pady=10, fill=tk.X)
+
+        tk.Label(self.edit_frame, text='Разрешить редактирование:').pack(padx=10, pady=10, side=tk.LEFT)
+        self.edit_check.pack(padx=10, pady=10, side=tk.RIGHT)
+
+        tk.Label(self.del_frame, text='Разрешить удаление:').pack(padx=10, pady=10, side=tk.LEFT)
+        self.del_check.pack(padx=10, pady=10, side=tk.RIGHT)
+        super().show()
+
+    def submit(self):
+        del_state = self.deletable.get()
+        ed_state = self.editable.get()
+        self.settings['prod_table_settings']['deletable'] = del_state
+        self.settings['prod_table_settings']['editable'] = ed_state
+        self.parent.storage_tab.data_grid.deletable = del_state
+        self.parent.storage_tab.data_grid.editable = ed_state
+        SettingsFileManager.write_settings('settings', self.settings)
+
+
 class ReadBarCodeDialogue(tk.Toplevel):
-    def __init__(self, parent, table: ProductsTable, mode: Literal['ADD', 'DELETE']):
+    def __init__(self, parent, table: ProductsTable):
         super().__init__(parent)
         win32api.LoadKeyboardLayout('00000409', 1)
         self.parent = parent
-        self.mode = mode
         self.table = table
         self.bar_code_entry = tk.Entry(self)
         self.bind('<Return>', self.submit)
-
-    def add(self):
-        data = self.bar_code_entry.get()
-        try:
-            attrs = DataMatrixReader.read(data)
-            self.table.emp_id_to_name(attrs)
-        except ValueError:
-            MessageBox(self.parent, 'Неверный код')
-            return
-        AddProductRecordDialogue(self.parent, self.table, attrs).show()
 
     def delete(self):
         data = self.bar_code_entry.get()
         try:
             attrs = DataMatrixReader.read(data)
-            id_to_del, last_prod = self.table.find_id(attrs)
-        except ValueError:
-            MessageBox(self.parent, 'Неверный код')
+        except DataMatrixReaderException as ex:
+            MessageBox(self.parent, ex)
             return
-        if last_prod:
-            try:
-                DataMatrixReader.delete_matrix(f"matrix\\{''.join(str(i) for i in attrs)}.png")
-            except FileNotFoundError:
-                MessageBox(self, 'Матрицы не существует')
-        self.table.remove(self.table.column_names[0], id_to_del)
-        self.parent.data_grid.delete_row(id_to_del)
+        try:
+            self.table.remove(self.table.column_names[0], attrs[0])
+            self.table.commit()
+        except AdapterException as ex:
+            self.table.rollback()
+            MessageBox(self.parent, ex)
+            return
+        self.parent.data_grid.delete_row(attrs[0])
 
     def submit(self, event):
-        if self.mode == 'ADD':
-            self.add()
-        elif self.mode == 'DELETE':
-            self.delete()
+        self.delete()
         self.destroy()
 
     def show(self):
