@@ -1,14 +1,9 @@
 import os
-import re
-
 
 from typing import Union
 
 import pylibdmtx.pylibdmtx as dmtx
 from PIL import Image
-from transliterate import translit
-
-from misc import TypeIdentifier
 
 
 class DataMatrixReaderException(Exception):
@@ -26,17 +21,6 @@ class InvalidMatrixValueException(DataMatrixReaderException):
 
 
 class DataMatrixReader:
-
-    @staticmethod
-    def read(data: str):
-        re_mask = re.compile(r'(.+?)\.(.+?)\.(.+?)\.(.+?)\.(.+?)\.(\d{2}\.\d{2}\.\d{4})\.(.+?)\.(.+?)\.')
-        tr_data = translit(data, 'ru').replace('Ноне', 'None')
-        try:
-            attrs = re.findall(re_mask, tr_data)[0]
-            attrs = [TypeIdentifier.identify_parse(i) for i in attrs]
-        except IndexError:
-            raise InvalidMatrixValueException
-        return attrs
 
     @staticmethod
     def print_matrix(path):

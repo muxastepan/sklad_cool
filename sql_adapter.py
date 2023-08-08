@@ -12,6 +12,11 @@ class AdapterException(Exception):
         return self.text
 
 
+class AdapterRecNotExistException(AdapterException):
+    def __init__(self):
+        super().__init__("ОШИБКА: Записи не существует")
+
+
 class AdapterFKException(AdapterException):
     def __init__(self, text):
         super().__init__(text)
@@ -115,6 +120,8 @@ class Adapter:
             self.con.rollback()
             raise ValueError
         data = self.cur.fetchall()
+        if not data:
+            raise AdapterRecNotExistException
         return data
 
     def delete(self, table_name: str, p_key_name: str, p_key_value: str):

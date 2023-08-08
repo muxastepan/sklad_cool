@@ -184,7 +184,11 @@ class ProductsTable(Table):
         super().remove(attr, value)
 
     def select_all(self):
-        data = self.adapter.select(self.table_name)
+        try:
+            data = self.adapter.select(self.table_name)
+        except AdapterRecNotExistException:
+            print('Warning: DB is empty')
+            return []
         self.commit()
         res_data = []
         for rec in data:

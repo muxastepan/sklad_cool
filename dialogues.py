@@ -1,7 +1,6 @@
 import tkinter as tk
-import win32api
+
 import tkinter.filedialog
-from data_matrix import DataMatrixReaderException
 from misc import SettingsFileManager
 from tables import *
 from widgets import AutoCompletionCombobox, MessageBox, RestartQuestionBox
@@ -314,7 +313,6 @@ class ProdTableSettingsDialogue(SettingsDialogue):
 class ReadBarCodeDialogue(tk.Toplevel):
     def __init__(self, parent, table: ProductsTable):
         super().__init__(parent)
-        win32api.LoadKeyboardLayout('00000409', 1)
         self.parent = parent
         self.table = table
         self.bar_code_entry = tk.Entry(self)
@@ -323,18 +321,13 @@ class ReadBarCodeDialogue(tk.Toplevel):
     def delete(self):
         data = self.bar_code_entry.get()
         try:
-            attrs = DataMatrixReader.read(data)
-        except DataMatrixReaderException as ex:
-            MessageBox(self.parent, ex)
-            return
-        try:
-            self.table.remove(self.table.column_names[0], attrs[0])
+            self.table.remove(self.table.column_names[0], data)
             self.table.commit()
         except AdapterException as ex:
             self.table.rollback()
             MessageBox(self.parent, ex)
             return
-        self.parent.data_grid.delete_row(attrs[0])
+        self.parent.data_grid.delete_row(int(data))
 
     def submit(self, event):
         self.delete()

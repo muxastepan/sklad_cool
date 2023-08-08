@@ -216,11 +216,11 @@ class DataGridView(tk.Frame):
                 data[i] = 'Пусто'
         self.table_gui.insert('', tk.END, values=data)
 
-    def delete_row(self, data):
+    def delete_row(self, rec_id: int):
         self._row_count -= 1
         rows = self.table_gui.get_children()
         for row in rows:
-            if self.table_gui.item(row)['values'][0] == data:
+            if self.table_gui.item(row)['values'][0] == rec_id:
                 self.table_gui.delete(row)
 
 
