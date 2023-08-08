@@ -1,7 +1,24 @@
 import psycopg2
 
-conn = psycopg2.connect(dbname="testdb", user="postgres", password="12345")
+conn = psycopg2.connect(dbname="postgres", user="postgres", password="12345")
+dbname = 'testdb'
+cur = conn.cursor()
+conn.autocommit = True
+cur.execute(f'''
+CREATE DATABASE {dbname}
+    WITH
+    OWNER = postgres
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'Russian_Russia.1251'
+    LC_CTYPE = 'Russian_Russia.1251'
+    TABLESPACE = pg_default
+    CONNECTION LIMIT = -1
+    IS_TEMPLATE = False;
+''')
+conn.autocommit = False
+conn.close()
 
+conn = psycopg2.connect(dbname=dbname, user="postgres", password="12345")
 cur = conn.cursor()
 cur.execute('''
 CREATE TABLE IF NOT EXISTS products_sizes
@@ -61,7 +78,8 @@ CREATE TABLE IF NOT EXISTS products
     product_color VARCHAR NOT NULL,
     product_date_stored DATE NOT NULL,
     laid_by VARCHAR NOT NULL, 	
-    rolled_by VARCHAR NOT NULL,    
+    rolled_by VARCHAR NOT NULL,
+    matrix_dir VARCHAR NOT NULL,    
     PRIMARY KEY(product_id),
     CONSTRAINT fk_product_size
         FOREIGN KEY(product_size) 

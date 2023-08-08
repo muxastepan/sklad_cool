@@ -1,5 +1,7 @@
 import os
 import re
+import subprocess
+import threading
 
 from typing import Union
 
@@ -38,43 +40,26 @@ class DataMatrixReader:
         return attrs
 
     @staticmethod
-    def print_matrix(folder_path):
-        os.startfile(folder_path)
-        # root = Image.new('RGB', (550, 400), '#FFFFFF')
-        # x = 50
-        # y = 50
-        # for path in paths:
-        #     im = Image.open(path)
-        #     norm_img = im.resize((30, 30))
-        #     root.paste(norm_img, (x, y))
-        #     x += 40
-        #     if x >= 500:
-        #         x = 0
-        #         y += 40
-        #
-        # root.save('root.png')
-        # os.startfile('root.png', 'print')
+    def print_matrix(path):
+        return os.startfile(path, "print")
 
     @staticmethod
-    def create_matrix(data: Union[list, tuple]):
-        # Вариант с полными данными
-        # code = ''
-        #
-        # for i in data:
-        #     code += f'{str(i)}.'
-        # code = translit(code, 'ru', reversed=True)
-        # encoded = dmtx.encode(code.encode('utf-8'))
-        # im = Image.frombytes('RGB', (encoded.width, encoded.height), encoded.pixels)
-        # im.save(f"matrix\\{''.join(str(i) for i in data)}.png")
-
-        # Вариант с ID
-        code = str(data[0])
+    def create_matrix(rec_id: Union[int, str], path: str):
+        code = str(rec_id)
 
         encoded = dmtx.encode(code.encode('utf-8'))
         im = Image.frombytes('RGB', (encoded.width, encoded.height), encoded.pixels)
-        im.save(f"matrix\\{''.join(str(i) for i in data)}.png")
+        im.save(path)
 
     @staticmethod
-    def clear_matrix(folder_path):
+    def clear_matrix_folder(folder_path):
         for fp in os.listdir(folder_path):
             os.remove(os.path.join(folder_path, fp))
+
+    @staticmethod
+    def delete_matrix(path):
+        os.remove(path)
+
+    @staticmethod
+    def open_matrix(path):
+        os.startfile(path)

@@ -1,6 +1,6 @@
 import tkinter as tk
 import win32api
-
+import tkinter.filedialog
 from data_matrix import DataMatrixReaderException, DataMatrixReader
 from misc import SettingsFileManager
 from tables import *
@@ -8,6 +8,47 @@ from widgets import AutoCompletionCombobox, MessageBox, RestartQuestionBox
 
 
 # TODO Обработка исключений
+class PrinterDialogue(tk.Toplevel):
+    def __init__(self, parent, paths, data):
+        super().__init__(parent)
+        self.data = data
+        self.paths = paths
+        self.cur = 0
+        self.text_var = tk.StringVar()
+        self.update_text()
+        self.label = tk.Label(self, textvariable=self.text_var)
+        self.next_btn = tk.Button(self, text='Следующая матрица', command=self.next)
+        self.prev_btn = tk.Button(self, text='Предыдущая матрица', command=self.prev)
+        self.print_button = tk.Button(self, text="Печать", command=self.print)
+
+    def update_text(self):
+        text = f"Вы собираетесь напечатать: \n{' '.join(str(i) for i in self.data[self.cur][1:-1])}"
+        self.text_var.set(text)
+
+    def prev(self):
+        if self.cur > 0:
+            self.cur -= 1
+            self.update_text()
+        else:
+            return
+
+    def print(self):
+        DataMatrixReader.print_matrix(self.paths[self.cur])
+
+    def show(self):
+        self.label.grid(row=0, column=0, columnspan=3)
+        self.next_btn.grid(row=1, column=2)
+        self.print_button.grid(row=1, column=1)
+        self.prev_btn.grid(row=1, column=0)
+
+    def next(self):
+        if self.cur < len(self.paths) - 1:
+            self.cur += 1
+            self.update_text()
+        else:
+            self.destroy()
+
+
 class AddDBRecordDialogue(tk.Toplevel):
     def __init__(self, parent, table: Table, straight_mode: bool = True, temp_var_attrs: list = None):
         super().__init__(parent)
@@ -66,6 +107,21 @@ class AddProductRecordDialogue(AddDBRecordDialogue):
     def __init__(self, parent, products_table: ProductsTable, temp_var_attrs: list):
         super().__init__(parent, products_table, straight_mode=False, temp_var_attrs=temp_var_attrs)
 
+    def _build(self):
+        value_entries = []
+        if self.straight_mode:
+            var_attrs = self.table.var_attrs
+        else:
+            var_attrs = self.temp_var_attrs
+
+        for i in range(len(self.table.column_names)):
+            if i == 0 or i == 5:
+                entry = tk.Entry(self, textvariable=tk.StringVar(value=var_attrs[i]))
+            else:
+                entry = AutoCompletionCombobox(self, values=var_attrs[i] if var_attrs else None)
+            value_entries.append(entry)
+        return value_entries
+
     def submit_close(self):
         super().submit_close()
         self.parent.update_temp_var_attrs()
@@ -107,11 +163,16 @@ class MatrixFolderPathDialogue(SettingsDialogue):
         self.path = tk.StringVar(value=self.settings['matrix_folder_path'])
         self.frame = tk.LabelFrame(self)
         self.entry = tk.Entry(self.frame, textvariable=self.path)
+        self.open_dir_dialogue_btn = tk.Button(self.frame, text='Выбрать путь...', command=self.dir_dialogue)
+
+    def dir_dialogue(self):
+        self.path.set(tkinter.filedialog.askdirectory())
 
     def show(self):
         self.frame.pack(padx=10, pady=10)
         tk.Label(self.frame, text='Путь к папке с матрицами:').pack(padx=10, pady=10)
         self.entry.pack(padx=10, pady=10)
+        self.open_dir_dialogue_btn.pack()
         super().show()
 
     def submit(self):

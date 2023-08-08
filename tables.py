@@ -1,5 +1,6 @@
 import datetime
 
+from data_matrix import DataMatrixReader
 from misc import TypeIdentifier
 from sql_adapter import *
 
@@ -22,6 +23,12 @@ class ProdTableAttrNotFoundException(TableException):
     def __init__(self, value=None):
         super().__init__(
             f"ОШИБКА: Значение {value if value else ''} отсутствует в таблице аттрибутов или в таблице сотрудников.")
+
+
+class ProdTableMatrixNotFoundWarning(TableException):
+    def __init__(self):
+        super().__init__(
+            f"ПРЕДУПРЕЖДЕНИЕ: Матрица не найдена. Запись удалена.")
 
 
 class EmpTableValUsedInOtherTable(TableException):
@@ -163,6 +170,18 @@ class ProductsTable(Table):
             self.adapter.insert(self.table_name, data_list)
         except AdapterFKException:
             raise ProdTableAttrNotFoundException()
+
+    def select_matrix(self, rec_id):
+        return self.select_id(rec_id, ('matrix_dir',))
+
+    def remove(self, attr: str, value: str):
+        matrix_path = self.select_matrix(value)[0]
+        try:
+            DataMatrixReader.delete_matrix(matrix_path)
+        except FileNotFoundError:
+            super().remove(attr, value)
+            raise ProdTableMatrixNotFoundWarning
+        super().remove(attr, value)
 
     def select_all(self):
         data = self.adapter.select(self.table_name)

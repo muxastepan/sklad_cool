@@ -1,16 +1,21 @@
+import os.path
+import tkinter.simpledialog
+
 from data_matrix import DataMatrixReader
 from dialogues import *
 from widgets import *
 from tables import *
 
+
 class TabScroll(ttk.Notebook):
-    def __init__(self,parent):
+    def __init__(self, parent):
         super().__init__(parent)
         self.bind('<<NotebookTabChanged>>', self.on_tab_change)
 
-    def on_tab_change(self,event:tk.Event):
+    def on_tab_change(self, event: tk.Event):
         for tab in self.children.values():
             tab.data_grid.update_table_gui()
+
 
 class SettingsMenu(tk.Menu):
     def __init__(self, parent, settings):
@@ -68,9 +73,21 @@ class StorageTabFrame(TabFrame):
         self.settings = SettingsFileManager.read_settings('settings')['prod_table_settings']
         self.data_grid.deletable = self.settings['deletable']
         self.data_grid.editable = self.settings['editable']
+        self.data_grid.spec_ops = {'Показать матрицу': self.show_matrix}
+
         self.delete_bar_code_btn = tk.Button(self, text='Пробить товар',
                                              command=self.show_delete_bar_code_dialogue)
         self.show_attrs_frame_btn = tk.Button(self, text='Аттрибуты', command=self.show_attrs_frame)
+
+    def show_matrix(self):
+        table = self.data_grid.table_gui
+        items = table.selection()
+        if not items:
+            return
+        for item in items:
+            rec_id = table.item(item)['values'][0]
+            path = self.table.select_matrix(rec_id)[0]
+            DataMatrixReader.open_matrix(path)
 
     def show_attrs_frame(self):
         AttrFrame(self, self.table).show()
@@ -151,19 +168,39 @@ class AddProductFrame(AddFrame):
     def submit_print_close(self):
         rows = self.data_grid.table_gui.get_children()
         parsed_values = []
+        matrix_folder_path = os.path.normpath(self.settings['matrix_folder_path'])
+        print_paths = []
         for row in rows:
             values = [TypeIdentifier.identify_parse(val) for val in self.data_grid.table_gui.item(row)['values']]
+
+            matrix_name = f"{''.join(str(i) for i in values)}.png"
+            matrix_path = os.path.join(matrix_folder_path, matrix_name)
+            print_paths.append(matrix_path)
             parsed_values.append(values)
             try:
+                try:
+                    DataMatrixReader.create_matrix(values[0], matrix_path)
+                except FileNotFoundError as ex:
+                    MessageBox(self.parent, ex)
+                    self.destroy()
+                    return
                 if self.settings['add_attrs_if_not_exists']:
                     self.table.add_to_attrs_tables(values)
                     self.table.commit()
+
+                values.append(matrix_path)
                 self.table.add(values)
             except AdapterException as ex:
+                DataMatrixReader.delete_matrix(matrix_path)
+                print_paths.remove(matrix_path)
+
                 MessageBox(self, ex)
                 self.table.rollback()
                 return
             except TableException as ex:
+                DataMatrixReader.delete_matrix(matrix_path)
+                print_paths.remove(matrix_path)
+
                 MessageBox(self, ex)
                 self.table.rollback()
                 return
@@ -171,19 +208,13 @@ class AddProductFrame(AddFrame):
         self.table.commit()
         for values in parsed_values:
             self.parent.data_grid.add_row(values)
-            DataMatrixReader.create_matrix(values)
 
-        self.table.commit()
-        DataMatrixReader.print_matrix(self.settings['matrix_folder_path'])
+        PrinterDialogue(self.parent, print_paths,parsed_values).show()
+
         self.destroy()
 
     def show(self):
         super().show()
-        try:
-            DataMatrixReader.clear_matrix(self.settings['matrix_folder_path'])
-        except FileNotFoundError as ex:
-            MessageBox(self.parent, ex)
-            self.destroy()
 
     def show_add_dialogue(self):
         AddProductRecordDialogue(self, self.table, self.temp_var_attrs).show()

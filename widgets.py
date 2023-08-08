@@ -1,10 +1,10 @@
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable, Iterable
+from typing import Callable, Dict
 
 from sql_adapter import *
 from misc import TypeIdentifier
-from tables import Table, TableException, ProdTableAttrNotFoundException
+from tables import Table, TableException, ProdTableAttrNotFoundException, ProdTableMatrixNotFoundWarning
 
 
 class QuestionBox(tk.Toplevel):
@@ -61,8 +61,9 @@ class MessageBox(tk.Toplevel):
 class DataGridView(tk.Frame):
 
     def __init__(self, parent, table: Table, editable: bool = False, deletable: bool = False,
-                 preload_from_table: bool = False, straight_mode: bool = True):
+                 preload_from_table: bool = False, straight_mode: bool = True, spec_ops: Dict[str, Callable] = None):
         super().__init__(parent)
+        self.spec_ops = spec_ops
         self.straight_mode = straight_mode
         self.preload_from_table = preload_from_table
         self.deletable = deletable
@@ -100,6 +101,9 @@ class DataGridView(tk.Frame):
             menu.add_command(label='Изменить', command=edit)
         if self.deletable:
             menu.add_command(label='Удалить', command=delete)
+        if self.spec_ops:
+            for label, command in self.spec_ops.items():
+                menu.add_command(label=label, command=command)
         menu.post(event.x_root, event.y_root)
 
     def set_cell_value(self, event: tk.Event):
@@ -195,6 +199,8 @@ class DataGridView(tk.Frame):
                     MessageBox(self, ex)
                     self.table.rollback()
                     return
+                except ProdTableMatrixNotFoundWarning as ex:
+                    MessageBox(self, ex)
                 except TableException as ex:
                     MessageBox(self, ex)
                     self.table.rollback()
