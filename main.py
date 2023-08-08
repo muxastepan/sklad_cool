@@ -2,7 +2,7 @@ import os
 import sys
 
 from frames import *
-from misc import SettingsFileManager
+from misc import SettingsFileManager, resource_path
 from tables import *
 import logging
 
@@ -10,7 +10,7 @@ import logging
 class MainFrame(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.settings = SettingsFileManager.read_settings('settings')
+        self.settings = SettingsFileManager.read_settings()
         self.title('СкладУчет')
         self.geometry(f"{self.settings['window_settings']['width']}x{self.settings['window_settings']['height']}")
         try:
@@ -51,11 +51,11 @@ class MainFrame(tk.Tk):
 
 
 if __name__ == '__main__':
-    open('crashlog.txt', 'w').close()
+    open(resource_path('crashlog.txt'), 'w').close()
     logging.basicConfig(filename='crashlog.txt', level=logging.DEBUG)
     try:
         app = MainFrame()
         app.run()
-    except:
+    except Exception:
         logging.exception('Exception')
         raise

@@ -1,7 +1,4 @@
 import os.path
-import tkinter.simpledialog
-
-from data_matrix import DataMatrixReader
 from dialogues import *
 from widgets import *
 from tables import *
@@ -70,7 +67,7 @@ class TabFrame(tk.Frame):
 class StorageTabFrame(TabFrame):
     def __init__(self, parent, table: ProductsTable):
         super().__init__(parent, table)
-        self.settings = SettingsFileManager.read_settings('settings')['prod_table_settings']
+        self.settings = SettingsFileManager.read_settings()['prod_table_settings']
         self.data_grid.deletable = self.settings['deletable']
         self.data_grid.editable = self.settings['editable']
         self.data_grid.spec_ops = {'Показать матрицу': self.show_matrix}
@@ -152,7 +149,7 @@ class AddFrame(tk.Toplevel):
 class AddProductFrame(AddFrame):
     def __init__(self, parent, table: ProductsTable):
         super().__init__(parent, table)
-        self.settings = SettingsFileManager.read_settings('settings')
+        self.settings = SettingsFileManager.read_settings()
         self.table.update_var_attrs()
         self.temp_var_attrs = self.table.var_attrs
 

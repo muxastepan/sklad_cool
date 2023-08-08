@@ -1,13 +1,12 @@
 import tkinter as tk
 import win32api
 import tkinter.filedialog
-from data_matrix import DataMatrixReaderException, DataMatrixReader
+from data_matrix import DataMatrixReaderException
 from misc import SettingsFileManager
 from tables import *
 from widgets import AutoCompletionCombobox, MessageBox, RestartQuestionBox
 
 
-# TODO Обработка исключений
 class PrinterDialogue(tk.Toplevel):
     def __init__(self, parent, paths, data):
         super().__init__(parent)
@@ -178,7 +177,7 @@ class MatrixFolderPathDialogue(SettingsDialogue):
     def submit(self):
         path = self.path.get()
         self.settings['matrix_folder_path'] = path
-        SettingsFileManager.write_settings('settings', self.settings)
+        SettingsFileManager.write_settings(self.settings)
         self.parent.matrix_path = path
 
 
@@ -206,7 +205,7 @@ class WindowSettingsDialogue(SettingsDialogue):
         height = self.height.get()
         self.settings['window_settings']['width'] = width
         self.settings['window_settings']['height'] = height
-        SettingsFileManager.write_settings('settings', self.settings)
+        SettingsFileManager.write_settings(self.settings)
         self.parent.geometry(f'{width}x{height}')
 
 
@@ -240,7 +239,7 @@ class SQLSettingsDialogue(SettingsDialogue):
         self.settings['sql_settings']['password'] = password
         self.settings['sql_settings']['db_name'] = dbname
 
-        SettingsFileManager.write_settings('settings', self.settings)
+        SettingsFileManager.write_settings(self.settings)
 
         RestartQuestionBox(self.parent, 'Изменения вступят в силу после перезапуска приложения.\n Перезапустить?')
 
@@ -278,7 +277,7 @@ class TableAttrsSettingsDialogue(SettingsDialogue):
     def submit(self):
         res_state = self.state.get()
         self.settings['add_attrs_if_not_exists'] = res_state
-        SettingsFileManager.write_settings('settings', self.settings)
+        SettingsFileManager.write_settings(self.settings)
 
 
 class ProdTableSettingsDialogue(SettingsDialogue):
@@ -309,7 +308,7 @@ class ProdTableSettingsDialogue(SettingsDialogue):
         self.settings['prod_table_settings']['editable'] = ed_state
         self.parent.storage_tab.data_grid.deletable = del_state
         self.parent.storage_tab.data_grid.editable = ed_state
-        SettingsFileManager.write_settings('settings', self.settings)
+        SettingsFileManager.write_settings(self.settings)
 
 
 class ReadBarCodeDialogue(tk.Toplevel):

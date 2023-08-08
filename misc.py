@@ -1,18 +1,30 @@
 import json
+import os
 import re
 import datetime
+import sys
+
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS2
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 
 class SettingsFileManager:
     @staticmethod
-    def read_settings(path):
-        with open(path, 'r') as f:
+    def read_settings():
+        with open(resource_path('settings'), 'r') as f:
             settings = json.load(f)
         return settings
 
     @staticmethod
-    def write_settings(path, settings):
-        with open(path, 'w') as f:
+    def write_settings(settings):
+        with open(resource_path(settings), 'w') as f:
             json.dump(settings, f)
 
 
