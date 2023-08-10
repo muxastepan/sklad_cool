@@ -67,7 +67,6 @@ class DataGridView(tk.Frame):
         self.straight_mode = straight_mode
         self.preload_from_table = preload_from_table
         self.deletable = deletable
-        self.editable = editable
         self.table = table
         if self.preload_from_table:
             self.data = self.table.select_all()
@@ -76,7 +75,20 @@ class DataGridView(tk.Frame):
         self.y_scroll_bar = tk.Scrollbar(self)
         self.x_scroll_bar = tk.Scrollbar(self, orient=tk.HORIZONTAL)
         self.table_gui = ttk.Treeview(self)
+        self.__editable = editable
         self._build_table()
+
+    @property
+    def editable(self):
+        return self.__editable
+
+    @editable.setter
+    def editable(self, val):
+        if val:
+            self.table_gui.bind("<Double-Button-1>", self.set_cell_value)
+        else:
+            self.table_gui.unbind("<Double-Button-1>")
+        self.__editable = val
 
     def update_table_gui(self):
         for row in self.data:
@@ -107,52 +119,52 @@ class DataGridView(tk.Frame):
         menu.post(event.x_root, event.y_root)
 
     def set_cell_value(self, event: tk.Event):
-        items = self.table_gui.selection()
-        if not items:
+        item = self.table_gui.selection()
+        if not item:
             return
+        else:
+            item = item[0]
         column = int(self.table_gui.identify_column(event.x).replace('#', '')) - 1
-        edit_frame = tk.Toplevel(self)
-        edit_entry = AutoCompletionCombobox(edit_frame,
-                                            values=[self.table_gui.item(item)['values'][column] for item in items])
+        edit_entry = AutoCompletionCombobox(self.table_gui,
+                                            values=[self.table_gui.item(item)['values'][column]])
         edit_entry.focus()
-        edit_entry.pack()
+        edit_entry.place(x=column * 100, y=25 + (event.y // 20 - 1) * 20, width=self.table_gui.column(column)['width'])
 
         def save_edit():
             data = TypeIdentifier.identify_parse(edit_entry.get())
             if not data:
                 data = None
             if self.straight_mode:
-                for item in items:
-                    rec_id = self.table_gui.item(item, 'values')[0]
+                rec_id = self.table_gui.item(item, 'values')[0]
 
-                    try:
-                        self.table.edit(self.table.column_names[column], data, rec_id)
-                    except AdapterException as ex:
-                        MessageBox(self, ex)
-                        self.table.rollback()
-                        return
-                    except ProdTableAttrNotFoundException as ex:
-                        self.table.rollback()
-                        AddAttrQuestionBox(self, f"{ex}\nДобавить этот аттрибут?", column - 1, (data,))
-                        return
-                    except TableException as ex:
-                        MessageBox(self, ex)
-                        self.table.rollback()
-                        return
+                try:
+                    self.table.edit(self.table.column_names[column], data, rec_id)
+                except AdapterException as ex:
+                    edit_entry.destroy()
+                    MessageBox(self, ex)
+                    self.table.rollback()
+                    return
+                except ProdTableAttrNotFoundException as ex:
+                    edit_entry.destroy()
+                    self.table.rollback()
+                    AddAttrQuestionBox(self, f"{ex}\nДобавить этот аттрибут?", column - 1, (data,))
+                    return
+                except TableException as ex:
+                    edit_entry.destroy()
+                    MessageBox(self, ex)
+                    self.table.rollback()
+                    return
                 self.table.commit()
                 self.table.update_var_attrs()
 
-            for item in items:
-                self.table_gui.set(item, column=column, value=data if data else 'Пусто')
+            self.table_gui.set(item, column=column, value=data if data else 'Пусто')
 
-            edit_frame.destroy()
+            edit_entry.destroy()
 
         def save_edit_return(event: tk.Event):
             return save_edit()
 
-        submit_button = tk.Button(edit_frame, text='OK', command=save_edit)
         edit_entry.bind('<Return>', save_edit_return)
-        submit_button.pack()
 
     def sort_data(self, col, reverse):
         data = [(self.table_gui.set(child, col), child) for child in self.table_gui.get_children('')]
@@ -216,7 +228,7 @@ class DataGridView(tk.Frame):
                 data[i] = 'Пусто'
         self.table_gui.insert('', tk.END, values=data)
 
-    def delete_row(self, rec_id: int):
+    def delete_row(self, rec_id: Union[int, str]):
         self._row_count -= 1
         rows = self.table_gui.get_children()
         for row in rows:
@@ -228,8 +240,9 @@ class AutoCompletionCombobox(ttk.Combobox):
     def __init__(self, root, values=None):
         super().__init__(root, values=values)
         self.bind('<KeyRelease>', self.check_input)
-        self.bind('<FocusIn>', self.check_input)
         self.old_values = self['values']
+        if self.old_values:
+            self.set(self.old_values[0])
 
     def check_input(self, event):
         value = self.get()

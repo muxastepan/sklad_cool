@@ -38,14 +38,13 @@ class EmpTableValUsedInOtherTable(TableException):
 
 class Table:
     def __init__(self, adapter: Adapter, table_name: str, column_names: Union[list, tuple],
-                 column_headings: Union[list, tuple], p_key_column_name: str, var_attrs=None, related_table=None,
+                 column_headings: Union[list, tuple], p_key_column_name: str, var_attrs=None,
                  attr_tables: Union[list, tuple] = None):
         self.attr_tables = attr_tables
         self.p_key_column_name = p_key_column_name
         if var_attrs is None:
             var_attrs = []
         self.var_attrs = var_attrs
-        self.related_table = related_table
         self.column_headings = column_headings
         self.column_names = column_names
         self.adapter = adapter
@@ -73,7 +72,11 @@ class Table:
         self.adapter.delete(self.table_name, attr, value)
 
     def select_all(self):
-        data = self.adapter.select(self.table_name)
+        try:
+            data = self.adapter.select(self.table_name)
+        except AdapterRecNotExistException:
+            print('Warning: DB is empty')
+            return []
         self.commit()
         return data
 
@@ -93,12 +96,13 @@ class Table:
         return data
 
     def update_var_attrs(self):
-        pass
+        self.select_all()
 
 
 class AttrTable(Table):
     def __init__(self, adapter: Adapter, table_name: str, column_name: str, heading: str):
         super().__init__(adapter, table_name, (column_name,), (heading,), column_name)
+        self.update_var_attrs()
 
     def add(self, data: Union[tuple, list], if_not_exist=True):
         self.adapter.insert(self.table_name, data, if_not_exist=if_not_exist)
@@ -132,13 +136,12 @@ class EmployeesTable(Table):
 
 
 class ProductsTable(Table):
-    def __init__(self, adapter: Adapter, related_table: EmployeesTable):
+    def __init__(self, adapter: Adapter):
         super().__init__(adapter, 'products',
                          ('product_id', 'product_size', 'product_type', 'product_subtype', 'product_color',
                           'product_date_stored', 'laid_by', 'rolled_by'),
                          ('ID', 'Размер', 'Тип', 'Подтип', 'Цвет', 'Дата', 'Закл', 'Катка'),
-                         'product_id',
-                         related_table=related_table)
+                         'product_id')
         self.attr_tables = self._fill_attr_tables()
         self.update_var_attrs()
 
@@ -146,7 +149,8 @@ class ProductsTable(Table):
         attr_tables = [AttrTable(self.adapter, 'products_sizes', 'sizes', 'Размеры'),
                        AttrTable(self.adapter, 'products_types', 'types', 'Типы'),
                        AttrTable(self.adapter, 'products_subtypes', 'subtypes', 'Подтипы'),
-                       AttrTable(self.adapter, 'products_colors', 'colors', 'Цвета')]
+                       AttrTable(self.adapter, 'products_colors', 'colors', 'Цвета'),
+                       AttrTable(self.adapter, 'employees', 'employees', 'Сотрудники')]
         return attr_tables
 
     def next_id(self):
@@ -160,8 +164,7 @@ class ProductsTable(Table):
             data_list[3] = 'Пусто'
         for i, table in enumerate(self.attr_tables):
             self.attr_tables[i].add((data_list[i + 1],))
-        self.related_table.add((data_list[6],), if_not_exist=True)
-        self.related_table.add((data_list[7],), if_not_exist=True)
+        self.attr_tables[-1].add((data_list[7],), if_not_exist=True)
 
     def add(self, data_list, if_not_exist=False):
         if data_list[3] == 'Пусто':
@@ -184,12 +187,7 @@ class ProductsTable(Table):
         super().remove(attr, value)
 
     def select_all(self):
-        try:
-            data = self.adapter.select(self.table_name)
-        except AdapterRecNotExistException:
-            print('Warning: DB is empty')
-            return []
-        self.commit()
+        data = super().select_all()
         res_data = []
         for rec in data:
             res_data.append([TypeIdentifier.identify_parse(val) for val in rec])
@@ -210,11 +208,11 @@ class ProductsTable(Table):
         except AdapterException:
             self.rollback()
             self.var_attrs.append(self.next_id())
-        for attr in self.attr_tables:
-            self.var_attrs.append(attr.select_all())
+        for i in range(len(self.attr_tables) - 1):
+            self.var_attrs.append(self.attr_tables[i].select_all())
 
         date = [(datetime.date.today().strftime('%d.%m.%Y'),)]
-        employees = self.related_table.select_all()
+        employees = self.attr_tables[-1].select_all()
         self.var_attrs.append(date)
         self.var_attrs.append(employees)
         self.var_attrs.append(employees)

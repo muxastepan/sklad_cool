@@ -24,7 +24,7 @@ class SettingsFileManager:
 
     @staticmethod
     def write_settings(settings):
-        with open(resource_path(settings), 'w') as f:
+        with open(resource_path('settings'), 'w') as f:
             json.dump(settings, f)
 
 

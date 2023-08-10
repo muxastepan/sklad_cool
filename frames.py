@@ -70,7 +70,7 @@ class StorageTabFrame(TabFrame):
         self.settings = SettingsFileManager.read_settings()['prod_table_settings']
         self.data_grid.deletable = self.settings['deletable']
         self.data_grid.editable = self.settings['editable']
-        self.data_grid.spec_ops = {'Показать матрицу': self.show_matrix}
+        self.data_grid.spec_ops = {'Печать': self.show_matrix}
 
         self.delete_bar_code_btn = tk.Button(self, text='Пробить товар',
                                              command=self.show_delete_bar_code_dialogue)
@@ -105,6 +105,9 @@ class EmployeeTabFrame(TabFrame):
     def __init__(self, parent, table: EmployeesTable):
         super().__init__(parent, table)
         self.data_grid = DataGridView(self, self.table, preload_from_table=True, editable=True, deletable=True)
+
+    def show(self):
+        super().show()
 
     def show_add_dialogue(self):
         AddEmployeeRecordDialogue(self, self.table).show()
@@ -205,8 +208,8 @@ class AddProductFrame(AddFrame):
         self.table.commit()
         for values in parsed_values:
             self.parent.data_grid.add_row(values)
-
-        PrinterDialogue(self.parent, print_paths,parsed_values).show()
+        if parsed_values:
+            PrinterDialogue(self.parent, print_paths, parsed_values).show()
 
         self.destroy()
 

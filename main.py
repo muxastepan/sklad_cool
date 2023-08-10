@@ -24,7 +24,7 @@ class MainFrame(tk.Tk):
             SQLSettingsDialogue(self, self.settings).show()
             self.mainloop()
         self.employees_table = EmployeesTable(self.sql_adapter)
-        self.product_table = ProductsTable(self.sql_adapter, self.employees_table)
+        self.product_table = ProductsTable(self.sql_adapter)
         self._build()
 
     @staticmethod

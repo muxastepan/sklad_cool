@@ -1,6 +1,9 @@
 import tkinter as tk
 
 import tkinter.filedialog
+
+import win32print
+
 from misc import SettingsFileManager
 from tables import *
 from widgets import AutoCompletionCombobox, MessageBox, RestartQuestionBox
@@ -13,6 +16,8 @@ class PrinterDialogue(tk.Toplevel):
         self.paths = paths
         self.cur = 0
         self.text_var = tk.StringVar()
+        self.select_printer_cmb = AutoCompletionCombobox(self, values=[i[2] for i in win32print.EnumPrinters(2)])
+        self.select_printer_cmb.set(win32print.GetDefaultPrinter())
         self.update_text()
         self.label = tk.Label(self, textvariable=self.text_var)
         self.next_btn = tk.Button(self, text='Следующая матрица', command=self.next)
@@ -31,13 +36,20 @@ class PrinterDialogue(tk.Toplevel):
             return
 
     def print(self):
+        try:
+            win32print.SetDefaultPrinter(self.select_printer_cmb.get())
+        except SystemError:
+            MessageBox(self,'ОШИБКА: Возможно выбранного принтера не существует')
+            return
         DataMatrixReader.print_matrix(self.paths[self.cur])
 
     def show(self):
-        self.label.grid(row=0, column=0, columnspan=3)
-        self.next_btn.grid(row=1, column=2)
-        self.print_button.grid(row=1, column=1)
-        self.prev_btn.grid(row=1, column=0)
+        tk.Label(self, text='Принтер:').grid(row=0, column=0)
+        self.select_printer_cmb.grid(row=0, column=1)
+        self.label.grid(row=1, column=0, columnspan=3)
+        self.next_btn.grid(row=2, column=2)
+        self.print_button.grid(row=2, column=1)
+        self.prev_btn.grid(row=2, column=0)
 
     def next(self):
         if self.cur < len(self.paths) - 1:
@@ -69,7 +81,7 @@ class AddDBRecordDialogue(tk.Toplevel):
         else:
             var_attrs = self.temp_var_attrs
         for i in range(len(self.table.column_names)):
-            entry = AutoCompletionCombobox(self, values=var_attrs[i] if var_attrs else None)
+            entry = AutoCompletionCombobox(self, values=[item[0] for item in var_attrs[i]] if var_attrs else None)
             value_entries.append(entry)
         return value_entries
 
@@ -116,7 +128,7 @@ class AddProductRecordDialogue(AddDBRecordDialogue):
             if i == 0 or i == 5:
                 entry = tk.Entry(self, textvariable=tk.StringVar(value=var_attrs[i]))
             else:
-                entry = AutoCompletionCombobox(self, values=var_attrs[i] if var_attrs else None)
+                entry = AutoCompletionCombobox(self, values=[item[0] for item in var_attrs[i]] if var_attrs else None)
             value_entries.append(entry)
         return value_entries
 
