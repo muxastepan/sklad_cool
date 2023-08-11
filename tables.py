@@ -81,7 +81,11 @@ class Table:
         return data
 
     def select_columns(self, columns: tuple):
-        data = self.adapter.select(self.table_name, columns)
+        try:
+            data = self.adapter.select(self.table_name, columns)
+        except AdapterRecNotExistException:
+            print('Warning: DB is empty')
+            return []
         self.commit()
         return data
 
@@ -111,16 +115,11 @@ class AttrTable(Table):
         self.var_attrs = [self.select_all()]
 
 
-class EmployeesTable(Table):
+class EmployeesTable(AttrTable):
     def __init__(self, adapter: Adapter):
         super().__init__(adapter, 'employees',
-                         ('employee_name',),
-                         ('Имя',),
-                         'employee_name')
-        self.update_var_attrs()
-
-    def update_var_attrs(self):
-        self.var_attrs = [self.select_all()]
+                         'employee_name',
+                         'Имя')
 
     def remove(self, attr: str, value: str):
         try:
@@ -133,6 +132,26 @@ class EmployeesTable(Table):
             super().edit(column_name, value, rec_id)
         except AdapterFKException:
             raise EmpTableValUsedInOtherTable
+
+
+class SalaryPerSizeTable(Table):
+    def __init__(self, adapter: Adapter):
+        super().__init__(adapter, 'salary_per_size',
+                         ('size', 'salary'),
+                         ('Размер', 'Оплата'),
+                         'size')
+        self.attr_tables = self._fill_attr_tables()
+        self.update_var_attrs()
+
+    def _fill_attr_tables(self):
+        attr_tables = [AttrTable(self.adapter, 'products_sizes', 'sizes', 'Размеры')]
+        return attr_tables
+
+    def update_var_attrs(self):
+        self.var_attrs.clear()
+        for attr in self.attr_tables:
+            self.var_attrs.append(attr.select_all())
+        self.var_attrs.append(self.select_columns(('salary',)))
 
 
 class ProductsTable(Table):
@@ -216,3 +235,9 @@ class ProductsTable(Table):
         self.var_attrs.append(date)
         self.var_attrs.append(employees)
         self.var_attrs.append(employees)
+
+
+class ProdArchiveTable(ProductsTable):
+    def __init__(self, adapter: Adapter):
+        super().__init__(adapter)
+        self.table_name = 'products_archive'

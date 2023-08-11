@@ -20,10 +20,12 @@ class MainFrame(tk.Tk):
                                        user=self.settings['sql_settings']["user_name"],
                                        password=self.settings['sql_settings']["password"])
         except AdapterException as ex:
-            MessageBox(self, ex)
+            MessageBox(ex, 'ERROR')
             SQLSettingsDialogue(self, self.settings).show()
             self.mainloop()
         self.employees_table = EmployeesTable(self.sql_adapter)
+        self.salary_per_size_table = SalaryPerSizeTable(self.sql_adapter)
+        self.products_archive_table = ProdArchiveTable(self.sql_adapter)
         self.product_table = ProductsTable(self.sql_adapter)
         self._build()
 
@@ -34,12 +36,13 @@ class MainFrame(tk.Tk):
 
     def _build(self):
 
-        self.menu = Menu(self, SettingsMenu(self, self.settings), 'Настройки')
+        self.menu = Menu(self, ('Настройки', 'Архив товаров'), SettingsMenu(self, self.settings),
+                         ProdArchiveMenu(self, self.products_archive_table))
         self.config(menu=self.menu)
 
         self.tabs = TabScroll(self)
-        self.storage_tab = StorageTabFrame(self.tabs, self.product_table)
-        self.employees_tab = EmployeeTabFrame(self.tabs, self.employees_table)
+        self.storage_tab = StorageTabFrame(self.tabs, self.product_table, self.products_archive_table)
+        self.employees_tab = EmployeeTabFrame(self.tabs, self.salary_per_size_table)
 
     def run(self):
         self.storage_tab.show()

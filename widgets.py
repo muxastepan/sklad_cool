@@ -1,10 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable, Dict
-
-from sql_adapter import *
-from misc import TypeIdentifier
-from tables import Table, TableException, ProdTableAttrNotFoundException, ProdTableMatrixNotFoundWarning
+from typing import Callable, Dict, Literal
+from tkinter import messagebox
+from tables import *
 
 
 class QuestionBox(tk.Toplevel):
@@ -42,20 +40,20 @@ class AddAttrQuestionBox(QuestionBox):
         try:
             super().run_callback()
         except AdapterException as ex:
-            MessageBox(self.parent, ex)
+            MessageBox(ex, 'ERROR')
             self.destroy()
 
 
-class MessageBox(tk.Toplevel):
-    def __init__(self, parent, text):
-        super().__init__(parent)
-        self.focus()
-        tk.Label(self, text=text).pack()
-        tk.Button(self, text='OK', command=self.destroy).pack()
-        self.bind('<Return>', self.close_event)
-
-    def close_event(self, event: tk.Event):
-        self.destroy()
+class MessageBox:
+    def __init__(self, text: Union[str, Exception], level: Literal['INFO', 'WARNING', 'ERROR']):
+        super().__init__()
+        self.level = level
+        if level == 'INFO':
+            tk.messagebox.showinfo(text, text)
+        elif level == 'WARNING':
+            tk.messagebox.showwarning(text, text)
+        elif level == 'ERROR':
+            tk.messagebox.showerror(text, text)
 
 
 class DataGridView(tk.Frame):
@@ -141,7 +139,7 @@ class DataGridView(tk.Frame):
                     self.table.edit(self.table.column_names[column], data, rec_id)
                 except AdapterException as ex:
                     edit_entry.destroy()
-                    MessageBox(self, ex)
+                    MessageBox(ex, 'ERROR')
                     self.table.rollback()
                     return
                 except ProdTableAttrNotFoundException as ex:
@@ -149,9 +147,14 @@ class DataGridView(tk.Frame):
                     self.table.rollback()
                     AddAttrQuestionBox(self, f"{ex}\nДобавить этот аттрибут?", column - 1, (data,))
                     return
+                except ProdTableEditIdException as ex:
+                    edit_entry.destroy()
+                    MessageBox(ex, 'WARNING')
+                    self.table.rollback()
+                    return
                 except TableException as ex:
                     edit_entry.destroy()
-                    MessageBox(self, ex)
+                    MessageBox(ex, 'ERROR')
                     self.table.rollback()
                     return
                 self.table.commit()
@@ -208,13 +211,13 @@ class DataGridView(tk.Frame):
                 try:
                     self.table.remove(self.table.p_key_column_name, p_key)
                 except AdapterException as ex:
-                    MessageBox(self, ex)
+                    MessageBox(ex, 'ERROR')
                     self.table.rollback()
                     return
                 except ProdTableMatrixNotFoundWarning as ex:
-                    MessageBox(self, ex)
+                    MessageBox(ex, 'ERROR')
                 except TableException as ex:
-                    MessageBox(self, ex)
+                    MessageBox(ex, 'ERROR')
                     self.table.rollback()
                     return
 

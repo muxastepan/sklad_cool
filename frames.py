@@ -14,6 +14,17 @@ class TabScroll(ttk.Notebook):
             tab.data_grid.update_table_gui()
 
 
+class ProdArchiveMenu(tk.Menu):
+    def __init__(self, parent, table: ProdArchiveTable):
+        super().__init__(parent, tearoff=0)
+        self.table = table
+        self.parent = parent
+        self.add_command(label='Архив товаров', command=self.show_archive_frame)
+
+    def show_archive_frame(self):
+        ProdArchiveFrame(self, self.table).show()
+
+
 class SettingsMenu(tk.Menu):
     def __init__(self, parent, settings):
         super().__init__(parent, tearoff=0)
@@ -42,10 +53,10 @@ class SettingsMenu(tk.Menu):
 
 
 class Menu(tk.Menu):
-    def __init__(self, parent, child_menu: tk.Menu, text: str):
+    def __init__(self, parent, headings: tuple, *child_menus: tk.Menu):
         super().__init__(parent)
-        self.child_menu = child_menu
-        self.add_cascade(label=text, menu=self.child_menu)
+        for i, child_menu in enumerate(child_menus):
+            self.add_cascade(label=headings[i], menu=child_menu)
 
 
 class TabFrame(tk.Frame):
@@ -65,8 +76,9 @@ class TabFrame(tk.Frame):
 
 
 class StorageTabFrame(TabFrame):
-    def __init__(self, parent, table: ProductsTable):
+    def __init__(self, parent, table: ProductsTable, archive_table: ProdArchiveTable):
         super().__init__(parent, table)
+        self.archive_table = archive_table
         self.settings = SettingsFileManager.read_settings()['prod_table_settings']
         self.data_grid.deletable = self.settings['deletable']
         self.data_grid.editable = self.settings['editable']
@@ -90,7 +102,7 @@ class StorageTabFrame(TabFrame):
         AttrFrame(self, self.table).show()
 
     def show_add_dialogue(self):
-        AddProductFrame(self, self.table).show()
+        AddProductFrame(self, self.table, self.archive_table).show()
 
     def show_delete_bar_code_dialogue(self):
         ReadBarCodeDialogue(self, self.table).show()
@@ -102,7 +114,7 @@ class StorageTabFrame(TabFrame):
 
 
 class EmployeeTabFrame(TabFrame):
-    def __init__(self, parent, table: EmployeesTable):
+    def __init__(self, parent, table: Table):
         super().__init__(parent, table)
         self.data_grid = DataGridView(self, self.table, preload_from_table=True, editable=True, deletable=True)
 
@@ -110,7 +122,7 @@ class EmployeeTabFrame(TabFrame):
         super().show()
 
     def show_add_dialogue(self):
-        AddEmployeeRecordDialogue(self, self.table).show()
+        AddDBRecordDialogue(self, self.table).show()
 
 
 class AddFrame(tk.Toplevel):
@@ -131,7 +143,7 @@ class AddFrame(tk.Toplevel):
             try:
                 self.table.add(values)
             except AdapterException as ex:
-                MessageBox(self, ex)
+                MessageBox(ex,'ERROR')
                 self.table.rollback()
                 return
         self.table.update_var_attrs()
@@ -150,8 +162,9 @@ class AddFrame(tk.Toplevel):
 
 
 class AddProductFrame(AddFrame):
-    def __init__(self, parent, table: ProductsTable):
+    def __init__(self, parent, table: ProductsTable, archive: ProdArchiveTable):
         super().__init__(parent, table)
+        self.archive = archive
         self.settings = SettingsFileManager.read_settings()
         self.table.update_var_attrs()
         self.temp_var_attrs = self.table.var_attrs
@@ -181,7 +194,7 @@ class AddProductFrame(AddFrame):
                 try:
                     DataMatrixReader.create_matrix(values[0], matrix_path)
                 except FileNotFoundError as ex:
-                    MessageBox(self.parent, ex)
+                    MessageBox(ex,'ERROR')
                     self.destroy()
                     return
                 if self.settings['add_attrs_if_not_exists']:
@@ -190,18 +203,19 @@ class AddProductFrame(AddFrame):
 
                 values.append(matrix_path)
                 self.table.add(values)
+                self.archive.add(values)
             except AdapterException as ex:
                 DataMatrixReader.delete_matrix(matrix_path)
                 print_paths.remove(matrix_path)
 
-                MessageBox(self, ex)
+                MessageBox(ex,'ERROR')
                 self.table.rollback()
                 return
             except TableException as ex:
                 DataMatrixReader.delete_matrix(matrix_path)
                 print_paths.remove(matrix_path)
 
-                MessageBox(self, ex)
+                MessageBox(ex,'ERROR')
                 self.table.rollback()
                 return
         self.table.update_var_attrs()
@@ -239,3 +253,13 @@ class AttrFrame(tk.Toplevel):
             frame = tk.LabelFrame(self)
             frame.grid(row=1, column=i)
             AttrGrid(frame, attr_table).show()
+
+
+class ProdArchiveFrame(tk.Toplevel):
+    def __init__(self, parent, table: ProdArchiveTable):
+        super().__init__(parent)
+        self.table = table
+        self.data_grid = DataGridView(self, self.table, editable=True, deletable=True, preload_from_table=True)
+
+    def show(self):
+        self.data_grid.pack()

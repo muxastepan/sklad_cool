@@ -39,7 +39,7 @@ class PrinterDialogue(tk.Toplevel):
         try:
             win32print.SetDefaultPrinter(self.select_printer_cmb.get())
         except SystemError:
-            MessageBox(self,'ОШИБКА: Возможно выбранного принтера не существует')
+            MessageBox('ОШИБКА: Возможно выбранного принтера не существует', 'ERROR')
             return
         DataMatrixReader.print_matrix(self.paths[self.cur])
 
@@ -100,7 +100,7 @@ class AddDBRecordDialogue(tk.Toplevel):
                 self.table.update_var_attrs()
                 self.table.commit()
             except AdapterException as ex:
-                MessageBox(self.parent, ex)
+                MessageBox(ex, 'ERROR')
                 self.table.rollback()
         else:
             self.parent.data_grid.add_row(data)
@@ -337,7 +337,7 @@ class ReadBarCodeDialogue(tk.Toplevel):
             self.table.commit()
         except AdapterException as ex:
             self.table.rollback()
-            MessageBox(self.parent, ex)
+            MessageBox(ex, 'ERROR')
             return
         self.parent.data_grid.delete_row(int(data))
 
