@@ -31,6 +31,8 @@ class SettingsFileManager:
 class TypeIdentifier:
     @staticmethod
     def identify_parse(value):
+        if type(value) == bool:
+            return value
         if not value:
             return None
         elif value == 'None':

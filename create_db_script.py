@@ -121,6 +121,7 @@ class ProgressFrame(tk.Frame):
                 laid_by VARCHAR NOT NULL,
                 rolled_by VARCHAR NOT NULL,
                 matrix_dir VARCHAR NOT NULL,
+                sold BOOLEAN,
                 PRIMARY KEY(product_id),
                 CONSTRAINT fk_product_size
                     FOREIGN KEY(product_size)
@@ -153,60 +154,17 @@ class ProgressFrame(tk.Frame):
                         )
             self.progress_bar['value'] += 10
             cur.execute('''
-            CREATE TABLE IF NOT EXISTS products_archive
-            (
-                product_id SERIAL,
-                product_size INT NOT NULL,
-                product_type VARCHAR NOT NULL,
-                product_subtype VARCHAR,
-                product_color VARCHAR NOT NULL,
-                product_date_stored DATE NOT NULL,
-                laid_by VARCHAR NOT NULL,
-                rolled_by VARCHAR NOT NULL,
-                matrix_dir VARCHAR NOT NULL,
-                PRIMARY KEY(product_id),
-                CONSTRAINT fk_product_size
-                    FOREIGN KEY(product_size)
-                    REFERENCES products_sizes(sizes),
-                CONSTRAINT fk_product_type
-                    FOREIGN KEY(product_type)
-                    REFERENCES products_types(types),
-                CONSTRAINT fk_product_subtype
-                    FOREIGN KEY(product_subtype)
-                    REFERENCES products_subtypes(subtypes),
-                CONSTRAINT fk_product_color
-                    FOREIGN KEY(product_color)
-                    REFERENCES products_colors(colors),
-                CONSTRAINT fk_laid_name
-                    FOREIGN KEY(laid_by)
-                    REFERENCES employees(employee_name),
-                CONSTRAINT fk_rolled_name
-                    FOREIGN KEY(rolled_by)
-                    REFERENCES employees(employee_name),
-                CONSTRAINT check_type CHECK
-                (product_type SIMILAR TO
-                '[а-яА-Я]*'),
-                CONSTRAINT check_subtype CHECK
-                (product_subtype SIMILAR TO
-                '[а-яА-Я]*'),
-                CONSTRAINT check_color CHECK
-                (product_color SIMILAR TO
-                '[а-яА-Я]*')
-            );
-            ''')
-            self.progress_bar['value'] += 10
-            cur.execute('''
                 CREATE OR REPLACE VIEW by_recs
                     AS SELECT product_size,
                     laid_by,rolled_by,
                     product_date_stored,
                     salary*0.55 as l_salary,
                     salary*0.45 as r_salary
-                    FROM products_archive
+                    FROM products
                     LEFT JOIN salary_per_size
-                    ON products_archive.product_size=salary_per_size.size;
+                    ON products.product_size=salary_per_size.size;
             ''')
-            self.progress_bar['value'] += 5
+            self.progress_bar['value'] += 10
             cur.execute('''
                 CREATE OR REPLACE VIEW all_recs_by_emp
                     AS SELECT product_date_stored,product_size,laid_by as emp_name,l_salary as salary
@@ -215,7 +173,7 @@ class ProgressFrame(tk.Frame):
                     SELECT product_date_stored,product_size,rolled_by,r_salary
                     FROM by_recs;
             ''')
-            self.progress_bar['value'] += 5
+            self.progress_bar['value'] += 10
             conn.commit()
             conn.close()
         except Exception as ex:

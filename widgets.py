@@ -3,6 +3,43 @@ from tkinter import ttk
 from typing import Callable, Dict, Literal
 from tkinter import messagebox
 from tables import *
+from tkcalendar import DateEntry
+
+
+class DateSelector(tk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.date_start = DateEntry(self, locale='ru_RU')
+        self.date_end = DateEntry(self, locale='ru_RU')
+        self.btn = tk.Button(self, text='Поиск', command=self.search_by_date)
+
+    def search_by_date(self):
+        try:
+            beg = datetime.datetime.strptime(self.date_start.get(), '%d.%m.%Y').date()
+            end = datetime.datetime.strptime(self.date_end.get(), '%d.%m.%Y').date()
+        except ValueError:
+            MessageBox('ОШИБКА: Дата введена неверно', 'ERROR')
+            return
+        try:
+            data = self.parent.table.select_by_date(beg, end)
+        except AdapterRecNotExistException as ex:
+            MessageBox(ex, 'WARNING')
+            data = []
+        except AdapterException as ex:
+            MessageBox(ex, 'ERROR')
+            self.parent.table.rollback()
+            return
+        self.parent.table.commit()
+        self.parent.data_grid.update_table_gui_with_data(data)
+
+    def show(self):
+        self.pack(side=tk.LEFT)
+        tk.Label(self, text='Начало периода:').grid(row=0, column=0)
+        self.date_start.grid(row=0, column=1)
+        tk.Label(self, text='Конец периода:').grid(row=0, column=2)
+        self.date_end.grid(row=0, column=3)
+        self.btn.grid(row=0, column=4)
 
 
 class QuestionBox(tk.Toplevel):
@@ -59,15 +96,19 @@ class MessageBox:
 class DataGridView(tk.Frame):
 
     def __init__(self, parent, table: Table, editable: bool = False, deletable: bool = False,
-                 preload_from_table: bool = False, straight_mode: bool = True, spec_ops: Dict[str, Callable] = None):
+                 preload_from_table: bool = False, straight_mode: bool = True, spec_ops: Dict[str, Callable] = None,
+                 select_func: Callable = None):
         super().__init__(parent)
+        self.select_func = select_func
         self.spec_ops = spec_ops
         self.straight_mode = straight_mode
         self.preload_from_table = preload_from_table
         self.deletable = deletable
         self.table = table
+        if not select_func:
+            self.select_func = self.table.select_all
         if self.preload_from_table:
-            self.data = self.table.select_all()
+            self.data = self.select_func()
         else:
             self.data = []
         self.y_scroll_bar = tk.Scrollbar(self)
@@ -88,11 +129,18 @@ class DataGridView(tk.Frame):
             self.table_gui.unbind("<Double-Button-1>")
         self.__editable = val
 
-    def update_table_gui(self):
+    def update_table_gui_with_data(self, data: list):
+        for row in self.data:
+            self.delete_row(row[0])
+        self.data = data
+        for row in self.data:
+            self.add_row(row)
+
+    def update_table_gui_from_table(self):
         for row in self.data:
             self.delete_row(row[0])
         if self.preload_from_table:
-            self.data = self.table.select_all()
+            self.data = self.select_func()
         else:
             self.data = []
         for row in self.data:
@@ -227,6 +275,8 @@ class DataGridView(tk.Frame):
     def add_row(self, data):
         self._row_count += 1
         for i, val in enumerate(data):
+            if type(val) == bool:
+                continue
             if not val:
                 data[i] = 'Пусто'
         self.table_gui.insert('', tk.END, values=data)

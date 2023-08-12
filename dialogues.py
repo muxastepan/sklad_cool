@@ -125,8 +125,10 @@ class AddProductRecordDialogue(AddDBRecordDialogue):
             var_attrs = self.temp_var_attrs
 
         for i in range(len(self.table.column_names)):
-            if i == 0 or i == 5:
+            if i == 0:
                 entry = tk.Entry(self, textvariable=tk.StringVar(value=var_attrs[i]))
+            elif i == 5:
+                entry = tk.Entry(self, textvariable=tk.StringVar(value=var_attrs[i][0]))
             else:
                 entry = AutoCompletionCombobox(self, values=[item[0] for item in var_attrs[i]] if var_attrs else None)
             value_entries.append(entry)
@@ -333,7 +335,8 @@ class ReadBarCodeDialogue(tk.Toplevel):
     def delete(self):
         data = self.bar_code_entry.get()
         try:
-            self.table.remove(self.table.column_names[0], data)
+            self.table.edit('sold', True, data)
+            # self.table.remove(self.table.column_names[0], data)
             self.table.commit()
         except AdapterException as ex:
             self.table.rollback()

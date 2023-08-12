@@ -39,7 +39,8 @@ class EmpTableValUsedInOtherTable(TableException):
 class Table:
     def __init__(self, adapter: Adapter, table_name: str, column_names: Union[list, tuple],
                  column_headings: Union[list, tuple], p_key_column_name: str, var_attrs=None,
-                 attr_tables: Union[list, tuple] = None):
+                 attr_tables: Union[list, tuple] = None, date_column: str = None):
+        self.date_column = date_column
         self.attr_tables = attr_tables
         self.p_key_column_name = p_key_column_name
         if var_attrs is None:
@@ -89,15 +90,20 @@ class Table:
         self.commit()
         return data
 
-    def select_where(self, columns: tuple, conditions: str):
-        data = self.adapter.select(self.table_name, columns, conditions=conditions)
+    def select_id(self, rec_id: str, columns: tuple):
+        data = self.adapter.select(self.table_name, columns=columns, conditions=f'{self.column_names[0]} = {rec_id}')[0]
         self.commit()
         return data
 
-    def select_id(self, rec_id: str, columns: tuple):
-        data = self.select_where(columns, conditions=f'{self.column_names[0]} = {rec_id}')[0]
+    def select_by_date(self, date_start, date_end):
+        data = \
+            self.adapter.select(self.table_name,
+                                conditions=f"{self.date_column} BETWEEN '{date_start}' AND '{date_end}'")
         self.commit()
-        return data
+        res_data = []
+        for rec in data:
+            res_data.append([TypeIdentifier.identify_parse(val) for val in rec])
+        return res_data
 
     def update_var_attrs(self):
         self.select_all()
@@ -160,7 +166,7 @@ class ProductsTable(Table):
                          ('product_id', 'product_size', 'product_type', 'product_subtype', 'product_color',
                           'product_date_stored', 'laid_by', 'rolled_by'),
                          ('ID', 'Размер', 'Тип', 'Подтип', 'Цвет', 'Дата', 'Закл', 'Катка'),
-                         'product_id')
+                         'product_id', date_column='product_date_stored')
         self.attr_tables = self._fill_attr_tables()
         self.update_var_attrs()
 
@@ -212,6 +218,14 @@ class ProductsTable(Table):
             res_data.append([TypeIdentifier.identify_parse(val) for val in rec])
         return res_data
 
+    def select_all_not_sold(self):
+        data = super().select_all()
+        res_data = []
+        for rec in data:
+            if not rec[-1]:
+                res_data.append([TypeIdentifier.identify_parse(val) for val in rec])
+        return res_data
+
     def edit(self, column_name: str, value, rec_id: str):
         if column_name == self.column_names[0]:
             raise ProdTableEditIdException
@@ -235,9 +249,3 @@ class ProductsTable(Table):
         self.var_attrs.append(date)
         self.var_attrs.append(employees)
         self.var_attrs.append(employees)
-
-
-class ProdArchiveTable(ProductsTable):
-    def __init__(self, adapter: Adapter):
-        super().__init__(adapter)
-        self.table_name = 'products_archive'

@@ -1,4 +1,5 @@
 import os.path
+
 from dialogues import *
 from widgets import *
 from tables import *
@@ -11,11 +12,11 @@ class TabScroll(ttk.Notebook):
 
     def on_tab_change(self, event: tk.Event):
         for tab in self.children.values():
-            tab.data_grid.update_table_gui()
+            tab.data_grid.update_table_gui_from_table()
 
 
 class ProdArchiveMenu(tk.Menu):
-    def __init__(self, parent, table: ProdArchiveTable):
+    def __init__(self, parent, table: ProductsTable):
         super().__init__(parent, tearoff=0)
         self.table = table
         self.parent = parent
@@ -63,26 +64,26 @@ class TabFrame(tk.Frame):
     def __init__(self, parent, table):
         super().__init__(parent)
         self.table = table
+        self.parent = parent
         self.add_btn = tk.Button(self, text='Добавить', command=self.show_add_dialogue)
-        self.data_grid = DataGridView(self, self.table, preload_from_table=True)
 
     def show_add_dialogue(self):
-        AddFrame(self, self.table).show()
+        AddDBRecordDialogue(self, self.table).show()
 
     def show(self):
+        self.pack()
         self.add_btn.pack(fill=tk.X)
-        self.data_grid.pack(side=tk.LEFT, fill=tk.BOTH)
-        self.pack(fill=tk.BOTH)
 
 
 class StorageTabFrame(TabFrame):
-    def __init__(self, parent, table: ProductsTable, archive_table: ProdArchiveTable):
+
+    def __init__(self, parent, table: ProductsTable):
         super().__init__(parent, table)
-        self.archive_table = archive_table
         self.settings = SettingsFileManager.read_settings()['prod_table_settings']
-        self.data_grid.deletable = self.settings['deletable']
-        self.data_grid.editable = self.settings['editable']
-        self.data_grid.spec_ops = {'Печать': self.show_matrix}
+        self.data_grid = DataGridView(self, self.table, self.settings['editable'], self.settings['deletable'],
+                                      preload_from_table=True, straight_mode=False,
+                                      spec_ops={'Печать': self.show_matrix},
+                                      select_func=table.select_all_not_sold)
 
         self.delete_bar_code_btn = tk.Button(self, text='Пробить товар',
                                              command=self.show_delete_bar_code_dialogue)
@@ -102,7 +103,7 @@ class StorageTabFrame(TabFrame):
         AttrFrame(self, self.table).show()
 
     def show_add_dialogue(self):
-        AddProductFrame(self, self.table, self.archive_table).show()
+        AddProductFrame(self, self.table).show()
 
     def show_delete_bar_code_dialogue(self):
         ReadBarCodeDialogue(self, self.table).show()
@@ -111,6 +112,7 @@ class StorageTabFrame(TabFrame):
         self.show_attrs_frame_btn.pack(fill=tk.X)
         self.delete_bar_code_btn.pack(fill=tk.X)
         super().show()
+        self.data_grid.pack()
 
 
 class EmployeeTabFrame(TabFrame):
@@ -120,13 +122,11 @@ class EmployeeTabFrame(TabFrame):
 
     def show(self):
         super().show()
-
-    def show_add_dialogue(self):
-        AddDBRecordDialogue(self, self.table).show()
+        self.data_grid.pack()
 
 
 class AddFrame(tk.Toplevel):
-    def __init__(self, parent: TabFrame, table):
+    def __init__(self, parent, table):
         super().__init__(parent)
         self.parent = parent
         self.table = table
@@ -143,7 +143,7 @@ class AddFrame(tk.Toplevel):
             try:
                 self.table.add(values)
             except AdapterException as ex:
-                MessageBox(ex,'ERROR')
+                MessageBox(ex, 'ERROR')
                 self.table.rollback()
                 return
         self.table.update_var_attrs()
@@ -162,9 +162,8 @@ class AddFrame(tk.Toplevel):
 
 
 class AddProductFrame(AddFrame):
-    def __init__(self, parent, table: ProductsTable, archive: ProdArchiveTable):
+    def __init__(self, parent, table: ProductsTable):
         super().__init__(parent, table)
-        self.archive = archive
         self.settings = SettingsFileManager.read_settings()
         self.table.update_var_attrs()
         self.temp_var_attrs = self.table.var_attrs
@@ -194,7 +193,7 @@ class AddProductFrame(AddFrame):
                 try:
                     DataMatrixReader.create_matrix(values[0], matrix_path)
                 except FileNotFoundError as ex:
-                    MessageBox(ex,'ERROR')
+                    MessageBox(ex, 'ERROR')
                     self.destroy()
                     return
                 if self.settings['add_attrs_if_not_exists']:
@@ -202,20 +201,20 @@ class AddProductFrame(AddFrame):
                     self.table.commit()
 
                 values.append(matrix_path)
+                values.append(False)
                 self.table.add(values)
-                self.archive.add(values)
             except AdapterException as ex:
                 DataMatrixReader.delete_matrix(matrix_path)
                 print_paths.remove(matrix_path)
 
-                MessageBox(ex,'ERROR')
+                MessageBox(ex, 'ERROR')
                 self.table.rollback()
                 return
             except TableException as ex:
                 DataMatrixReader.delete_matrix(matrix_path)
                 print_paths.remove(matrix_path)
 
-                MessageBox(ex,'ERROR')
+                MessageBox(ex, 'ERROR')
                 self.table.rollback()
                 return
         self.table.update_var_attrs()
@@ -227,9 +226,6 @@ class AddProductFrame(AddFrame):
 
         self.destroy()
 
-    def show(self):
-        super().show()
-
     def show_add_dialogue(self):
         AddProductRecordDialogue(self, self.table, self.temp_var_attrs).show()
 
@@ -239,8 +235,9 @@ class AttrGrid(TabFrame):
         super().__init__(parent, table)
         self.data_grid = DataGridView(self, self.table, preload_from_table=True, deletable=True, editable=True)
 
-    def show_add_dialogue(self):
-        AddDBRecordDialogue(self, self.table).show()
+    def show(self):
+        super().show()
+        self.data_grid.pack()
 
 
 class AttrFrame(tk.Toplevel):
@@ -256,10 +253,13 @@ class AttrFrame(tk.Toplevel):
 
 
 class ProdArchiveFrame(tk.Toplevel):
-    def __init__(self, parent, table: ProdArchiveTable):
+    def __init__(self, parent, table: ProductsTable):
         super().__init__(parent)
         self.table = table
         self.data_grid = DataGridView(self, self.table, editable=True, deletable=True, preload_from_table=True)
+        self.select_date = DateSelector(self)
+        self.select_date.search_by_date()
 
     def show(self):
-        self.data_grid.pack()
+        self.data_grid.pack(side=tk.BOTTOM)
+        self.select_date.show()
