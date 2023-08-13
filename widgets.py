@@ -7,8 +7,9 @@ from tkcalendar import DateEntry
 
 
 class DateSelector(tk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, *con_data_frames):
         super().__init__(parent)
+        self.con_data_frames = con_data_frames
         self.parent = parent
         self.date_start = DateEntry(self, locale='ru_RU')
         self.date_end = DateEntry(self, locale='ru_RU')
@@ -21,25 +22,27 @@ class DateSelector(tk.Frame):
         except ValueError:
             MessageBox('ОШИБКА: Дата введена неверно', 'ERROR')
             return
-        try:
-            data = self.parent.table.select_by_date(beg, end)
-        except AdapterRecNotExistException as ex:
-            MessageBox(ex, 'WARNING')
-            data = []
-        except AdapterException as ex:
-            MessageBox(ex, 'ERROR')
-            self.parent.table.rollback()
-            return
-        self.parent.table.commit()
-        self.parent.data_grid.update_table_gui_with_data(data)
+        res_data = []
+        for data_frame in self.con_data_frames:
+            try:
+                res_data.append(data_frame.table.select_by_date(beg, end))
+            except AdapterException as ex:
+                MessageBox(ex, 'ERROR')
+                for data_frame_to_rollback in self.con_data_frames:
+                    data_frame_to_rollback.table.rollback()
+                return
+        for i, data_frame in enumerate(self.con_data_frames):
+            data_frame.table.commit()
+            data_frame.data_grid.update_table_gui_with_data(res_data[i])
 
-    def show(self):
-        self.pack(side=tk.LEFT)
+
+    def show(self, row=0, column=0, columnspan=1):
+        self.grid(row=row, column=column, columnspan=columnspan)
         tk.Label(self, text='Начало периода:').grid(row=0, column=0)
         self.date_start.grid(row=0, column=1)
         tk.Label(self, text='Конец периода:').grid(row=0, column=2)
         self.date_end.grid(row=0, column=3)
-        self.btn.grid(row=0, column=4)
+        self.btn.grid(row=0, column=4, padx=10)
 
 
 class QuestionBox(tk.Toplevel):
@@ -68,7 +71,7 @@ class RestartQuestionBox(QuestionBox):
 class AddAttrQuestionBox(QuestionBox):
     def __init__(self, parent, text, column_ind, *args):
         if column_ind == 5 or column_ind == 6:
-            callback = parent.table.related_table.add
+            callback = parent.table.attr_tables[-1].add
         else:
             callback = parent.table.attr_tables[column_ind].add
         super().__init__(parent, text, callback, *args)

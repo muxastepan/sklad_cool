@@ -14,7 +14,7 @@ class AdapterException(Exception):
 
 class AdapterRecNotExistException(AdapterException):
     def __init__(self):
-        super().__init__("ОШИБКА: Записи не существует")
+        super().__init__("ПРЕДУПРЕЖДЕНИЕ: Записи не существует или таблица пустая")
 
 
 class AdapterFKException(AdapterException):
@@ -61,8 +61,7 @@ class Adapter:
     def rollback(self):
         self.con.rollback()
 
-    def insert(self, table_name: str, data_list: Union[list, tuple], column_order: tuple = None,
-               if_not_exist: bool = False):
+    def insert(self, table_name: str, data_list: Union[list, tuple], column_order: tuple = None):
         query = f"INSERT INTO {table_name} "
         if column_order:
             if len(column_order) == 1:
@@ -72,8 +71,6 @@ class Adapter:
 
         values_placeholder = f"({'%s,' * (len(data_list) - 1) + '%s'})"
         query += f"VALUES {values_placeholder}"
-        if if_not_exist:
-            query += " ON CONFLICT DO NOTHING"
         try:
             self.cur.execute(query,
                              data_list)
@@ -92,7 +89,7 @@ class Adapter:
             raise AdapterWrongInputException
 
     def select(self, table_name, columns: Union[list, tuple] = None, distinct=False, conditions: str = None,
-               order: Union[list, tuple] = None, limit=None):
+               order: Union[list, tuple] = None, limit=None, group_by: tuple = None):
         query = "SELECT "
         if distinct:
             query += 'DISTINCT '
@@ -114,6 +111,8 @@ class Adapter:
                 query += ' DESC'
         if limit:
             query += f' LIMIT {limit}'
+        if group_by:
+            query += f" GROUP BY ({','.join(group_by)})"
         try:
             self.cur.execute(query)
         except psycopg2.DataError:
@@ -127,7 +126,7 @@ class Adapter:
     def delete(self, table_name: str, p_key_name: str, p_key_value: str):
         try:
             self.cur.execute(
-                f"DELETE FROM {table_name} WHERE {p_key_name} = (%s)", (p_key_value,)
+                f"DELETE FROM {table_name} WHERE {p_key_name} = %s", (p_key_value,)
             )
         except psycopg2.DataError:
             raise AdapterWrongInputException

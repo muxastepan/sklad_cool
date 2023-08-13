@@ -105,7 +105,7 @@ class ProgressFrame(tk.Frame):
                 PRIMARY KEY(employee_name),
                 CONSTRAINT check_name CHECK
                 (employee_name SIMILAR TO
-                '[а-яА-Я]*')
+                '[а-яА-Я ]*')
 
             )''')
             self.progress_bar['value'] += 10

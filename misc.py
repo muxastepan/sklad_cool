@@ -1,3 +1,4 @@
+import decimal
 import json
 import os
 import re
@@ -41,6 +42,8 @@ class TypeIdentifier:
             return value
         elif type(value) == datetime.date:
             return value.strftime('%d.%m.%Y')
+        elif type(value) == decimal.Decimal:
+            return value
         elif all(re.match(r'\d+', i) for i in value):
             return int(value)
         else:

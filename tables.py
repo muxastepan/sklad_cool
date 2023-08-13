@@ -38,7 +38,7 @@ class EmpTableValUsedInOtherTable(TableException):
 
 class Table:
     def __init__(self, adapter: Adapter, table_name: str, column_names: Union[list, tuple],
-                 column_headings: Union[list, tuple], p_key_column_name: str, var_attrs=None,
+                 column_headings: Union[list, tuple], p_key_column_name: str = None, var_attrs=None,
                  attr_tables: Union[list, tuple] = None, date_column: str = None):
         self.date_column = date_column
         self.attr_tables = attr_tables
@@ -66,8 +66,8 @@ class Table:
     def edit(self, column_name: str, value, rec_id: str):
         self.adapter.update(self.table_name, column_name, value, rec_id, self.column_names[0])
 
-    def add(self, data_list: Union[list, tuple], if_not_exist: bool = False):
-        self.adapter.insert(self.table_name, data_list, if_not_exist=if_not_exist)
+    def add(self, data_list: Union[list, tuple]):
+        self.adapter.insert(self.table_name, data_list)
 
     def remove(self, attr: str, value: str):
         self.adapter.delete(self.table_name, attr, value)
@@ -96,9 +96,14 @@ class Table:
         return data
 
     def select_by_date(self, date_start, date_end):
-        data = \
-            self.adapter.select(self.table_name,
-                                conditions=f"{self.date_column} BETWEEN '{date_start}' AND '{date_end}'")
+        try:
+            data = \
+                self.adapter.select(self.table_name,
+                                    conditions=f"{self.date_column} BETWEEN '{date_start}' AND '{date_end}'")
+        except AdapterRecNotExistException:
+            print('WARNING: DB is empty')
+            self.commit()
+            return []
         self.commit()
         res_data = []
         for rec in data:
@@ -114,8 +119,8 @@ class AttrTable(Table):
         super().__init__(adapter, table_name, (column_name,), (heading,), column_name)
         self.update_var_attrs()
 
-    def add(self, data: Union[tuple, list], if_not_exist=True):
-        self.adapter.insert(self.table_name, data, if_not_exist=if_not_exist)
+    def add(self, data: Union[tuple, list]):
+        self.adapter.insert(self.table_name, data)
 
     def update_var_attrs(self):
         self.var_attrs = [self.select_all()]
@@ -127,13 +132,19 @@ class EmployeesTable(AttrTable):
                          'employee_name',
                          'Имя')
 
+    def add(self, data: Union[tuple, list]):
+        data = [data[0].strip(' ')]
+        super().add(data)
+
     def remove(self, attr: str, value: str):
+        value.strip(' ')
         try:
             super().remove(attr, value)
         except AdapterFKException:
             raise EmpTableValUsedInOtherTable
 
     def edit(self, column_name: str, value, rec_id: str):
+        value.strip(' ')
         try:
             super().edit(column_name, value, rec_id)
         except AdapterFKException:
@@ -175,7 +186,7 @@ class ProductsTable(Table):
                        AttrTable(self.adapter, 'products_types', 'types', 'Типы'),
                        AttrTable(self.adapter, 'products_subtypes', 'subtypes', 'Подтипы'),
                        AttrTable(self.adapter, 'products_colors', 'colors', 'Цвета'),
-                       AttrTable(self.adapter, 'employees', 'employees', 'Сотрудники')]
+                       EmployeesTable(self.adapter)]
         return attr_tables
 
     def next_id(self):
@@ -249,3 +260,71 @@ class ProductsTable(Table):
         self.var_attrs.append(date)
         self.var_attrs.append(employees)
         self.var_attrs.append(employees)
+
+
+class SalaryTable(Table):
+    def __init__(self, adapter: Adapter):
+        super().__init__(adapter, 'all_recs_by_emp', ('emp_name', 'salary'),
+                         ('Имя сотрудника', 'Оплата'),
+                         date_column='product_date_stored')
+
+    def select_all(self):
+        try:
+            data = self.adapter.select(self.table_name, columns=('emp_name', 'SUM(salary)'),
+                                       group_by=('emp_name',))
+        except AdapterRecNotExistException:
+            print('Warning: DB is empty')
+            return []
+        self.commit()
+        return data
+
+    def select_by_date(self, date_start, date_end):
+        try:
+            data = \
+                self.adapter.select(self.table_name, columns=('emp_name', 'SUM(salary)'),
+                                    group_by=('emp_name',),
+                                    conditions=f"{self.date_column} BETWEEN '{date_start}' AND '{date_end}'")
+        except AdapterRecNotExistException:
+            print('WARNING: DB is empty')
+            self.commit()
+            return []
+        self.commit()
+        res_data = []
+        for rec in data:
+            res_data.append([TypeIdentifier.identify_parse(val) for val in rec])
+        return res_data
+
+
+class AdvancedSalaryTable(Table):
+    def __init__(self, adapter: Adapter):
+        super().__init__(adapter, 'all_recs_by_emp', ('product_size', 'emp_name', 'count', 'salary'),
+                         ('Размер', 'Имя сотрудника', 'Количество', 'Оплата'),
+                         date_column='product_date_stored')
+
+    def select_all(self):
+        try:
+            data = self.adapter.select(self.table_name, columns=(
+                'product_size', 'emp_name', 'COUNT((product_size,emp_name))', 'SUM(salary)'),
+                                       group_by=('product_size', 'emp_name',))
+        except AdapterRecNotExistException:
+            print('Warning: DB is empty')
+            return []
+        self.commit()
+        return data
+
+    def select_by_date(self, date_start, date_end):
+        try:
+            data = \
+                self.adapter.select(self.table_name, columns=(
+                    'product_size', 'emp_name', 'COUNT((product_size,emp_name))', 'SUM(salary)'),
+                                    group_by=('product_size', 'emp_name',),
+                                    conditions=f"{self.date_column} BETWEEN '{date_start}' AND '{date_end}'")
+        except AdapterRecNotExistException:
+            print('WARNING: DB is empty')
+            self.commit()
+            return []
+        self.commit()
+        res_data = []
+        for rec in data:
+            res_data.append([TypeIdentifier.identify_parse(val) for val in rec])
+        return res_data

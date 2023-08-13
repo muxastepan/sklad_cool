@@ -23,9 +23,6 @@ class MainFrame(tk.Tk):
             MessageBox(ex, 'ERROR')
             SQLSettingsDialogue(self, self.settings).show()
             self.mainloop()
-        self.employees_table = EmployeesTable(self.sql_adapter)
-        self.salary_per_size_table = SalaryPerSizeTable(self.sql_adapter)
-        self.product_table = ProductsTable(self.sql_adapter)
         self._build()
 
     @staticmethod
@@ -34,20 +31,35 @@ class MainFrame(tk.Tk):
         os.execl(program, program, *sys.argv)
 
     def _build(self):
+        self.employees_table = EmployeesTable(self.sql_adapter)
+        self.salary_per_size_table = SalaryPerSizeTable(self.sql_adapter)
+        self.product_table = ProductsTable(self.sql_adapter)
+        self.salary_table = SalaryTable(self.sql_adapter)
+        self.adv_salary_table = AdvancedSalaryTable(self.sql_adapter)
 
         self.menu = Menu(self, ('Настройки', 'Архив товаров'), SettingsMenu(self, self.settings),
                          ProdArchiveMenu(self, self.product_table))
         self.config(menu=self.menu)
 
         self.tabs = TabScroll(self)
-        self.storage_tab = StorageTabFrame(self.tabs, self.product_table)
-        self.employees_tab = EmployeeTabFrame(self.tabs, self.salary_per_size_table)
+        self.storage_tab = TabFrame(self.tabs)
+        self.storage_tab.fill_data_frames(
+            ProductDataFrame(self.storage_tab, self.product_table, self.settings['prod_table_settings']['editable'],
+                             self.settings['prod_table_settings']['deletable']))
+
+        self.salary_tab = SalaryTabFrame(self.tabs)
+        self.salary_tab.fill_data_frames(
+            DataFrame(self.salary_tab, self.salary_per_size_table, editable=True, deletable=True,
+                      preload_from_table=True, straight_mode=True),
+            DataFrame(self.salary_tab, self.adv_salary_table, can_add=False, preload_from_table=True),
+            DataFrame(self.salary_tab, self.salary_table, can_add=False, preload_from_table=True)
+        )
 
     def run(self):
         self.storage_tab.show()
-        self.employees_tab.show()
+        self.salary_tab.show()
         self.tabs.add(self.storage_tab, text='Склад')
-        self.tabs.add(self.employees_tab, text='Сотрудники')
+        self.tabs.add(self.salary_tab, text='Расчёт зарплаты')
         self.tabs.pack(fill=tk.BOTH)
         self.mainloop()
 

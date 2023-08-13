@@ -10,8 +10,8 @@ from widgets import AutoCompletionCombobox, MessageBox, RestartQuestionBox
 
 
 class PrinterDialogue(tk.Toplevel):
-    def __init__(self, parent, paths, data):
-        super().__init__(parent)
+    def __init__(self, paths, data):
+        super().__init__()
         self.data = data
         self.paths = paths
         self.cur = 0
@@ -216,10 +216,14 @@ class WindowSettingsDialogue(SettingsDialogue):
     def submit(self):
         width = self.width.get()
         height = self.height.get()
+        try:
+            self.parent.geometry(f'{width}x{height}')
+        except tk.TclError:
+            MessageBox('Неверный формат', 'ERROR')
+            return
         self.settings['window_settings']['width'] = width
         self.settings['window_settings']['height'] = height
         SettingsFileManager.write_settings(self.settings)
-        self.parent.geometry(f'{width}x{height}')
 
 
 class SQLSettingsDialogue(SettingsDialogue):

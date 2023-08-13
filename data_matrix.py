@@ -48,11 +48,11 @@ class DataMatrixReader:
         img_height = img.size[1]
 
         if landscape:
-            ratio = vertres / horzres
+            ratio = vertres // horzres
             max_width = img_width
             max_height = img_width * ratio
         else:
-            ratio = horzres / vertres
+            ratio = horzres // vertres
             max_height = img_height
             max_width = max_height * ratio
 
@@ -60,8 +60,8 @@ class DataMatrixReader:
         hdc.SetViewportExt((horzres, vertres))
         hdc.SetWindowExt((max_width, max_height))
 
-        offset_x = (max_width - img_width) / 2
-        offset_y = (max_height - img_height) / 2
+        offset_x = (max_width - img_width) // 2
+        offset_y = (max_height - img_height) // 2
         hdc.SetWindowOrg((-offset_x, -offset_y))
 
         try:
