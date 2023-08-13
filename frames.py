@@ -188,7 +188,7 @@ class AddProductDataFrame(AddDataFrame):
                     DataMatrixReader.create_matrix(values[0], matrix_path)
                 except FileNotFoundError as ex:
                     MessageBox(ex, 'ERROR')
-                    self.destroy()
+                    MatrixFolderPathDialogue(self, self.settings).show()
                     return
                 if self.settings['add_attrs_if_not_exists']:
                     self.table.add_to_attrs_tables(values)
