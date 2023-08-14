@@ -79,5 +79,3 @@ class DataMatrixReader:
         return os.startfile(path, "print")
 
 
-if __name__ == '__main__':
-    DataMatrixReader.print_matrix('matrix\\712ВаленкиПустоБелый14.08.2023ИвановаИванов.png')
