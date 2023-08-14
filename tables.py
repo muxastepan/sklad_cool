@@ -200,7 +200,7 @@ class ProductsTable(Table):
             data_list[3] = 'Пусто'
         for i, table in enumerate(self.attr_tables):
             self.attr_tables[i].add((data_list[i + 1],))
-        self.attr_tables[-1].add((data_list[7],), if_not_exist=True)
+        self.attr_tables[-1].add((data_list[7],))
 
     def add(self, data_list, if_not_exist=False):
         if data_list[3] == 'Пусто':

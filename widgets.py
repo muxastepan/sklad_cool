@@ -276,6 +276,7 @@ class DataGridView(tk.Frame):
             self.delete_row(p_key)
 
     def add_row(self, data):
+        data = list(data)
         self._row_count += 1
         for i, val in enumerate(data):
             if type(val) == bool:

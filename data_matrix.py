@@ -35,34 +35,14 @@ class DataMatrixReader:
         horzres = hdc.GetDeviceCaps(win32con.HORZRES)
         vertres = hdc.GetDeviceCaps(win32con.VERTRES)
 
-        landscape = horzres > vertres
-
-        if landscape:
-            if img.size[1] > img.size[0]:
-                img = img.rotate(90, expand=True)
-        else:
-            if img.size[1] < img.size[0]:
-                img = img.rotate(90, expand=True)
-
         img_width = img.size[0]
         img_height = img.size[1]
 
-        if landscape:
-            ratio = vertres // horzres
-            max_width = img_width
-            max_height = img_width * ratio
-        else:
-            ratio = horzres // vertres
-            max_height = img_height
-            max_width = max_height * ratio
-
         hdc.SetMapMode(win32con.MM_ISOTROPIC)
+        hdc.SetWindowExt((img_width, img_height))
         hdc.SetViewportExt((horzres, vertres))
-        hdc.SetWindowExt((max_width, max_height))
 
-        offset_x = (max_width - img_width) // 2
-        offset_y = (max_height - img_height) // 2
-        hdc.SetWindowOrg((-offset_x, -offset_y))
+        hdc.SetWindowOrg((0, 0))
 
         try:
             hdc.StartDoc('Result')
@@ -71,7 +51,7 @@ class DataMatrixReader:
         hdc.StartPage()
 
         dib = ImageWin.Dib(img)
-        dib.draw(hdc.GetHandleOutput(), (0, 0, img_width, img_height))
+        dib.draw(hdc.GetHandleOutput(), (0, 0, 30, 30))
 
         hdc.EndPage()
         hdc.EndDoc()
@@ -97,3 +77,7 @@ class DataMatrixReader:
     @staticmethod
     def open_matrix(path):
         return os.startfile(path, "print")
+
+
+if __name__ == '__main__':
+    DataMatrixReader.print_matrix('matrix\\712ВаленкиПустоБелый14.08.2023ИвановаИванов.png')

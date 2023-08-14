@@ -25,6 +25,8 @@ class PrinterDialogue(tk.Toplevel):
         self.print_button = tk.Button(self, text="Печать", command=self.print)
 
     def update_text(self):
+        if not self.data:
+            return
         text = f"Вы собираетесь напечатать: \n{' '.join(str(i) for i in self.data[self.cur][1:-1])}"
         self.text_var.set(text)
 

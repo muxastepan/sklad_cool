@@ -255,7 +255,7 @@ class SalaryTabFrame(TabFrame):
         def on_exit(event: tk.Event):
             sum_view.destroy()
 
-        sum_var = tk.DoubleVar(value=sum([item[1] for item in self.data_frames[2].data_grid.data]))
+        sum_var = tk.DoubleVar(value=sum([item[1] for item in self.data_frames[2].data_grid.data if item[1]]))
         sum_view = tk.Toplevel()
         ok_btn = tk.Button(sum_view, text='OK', command=sum_view.destroy)
         sum_entry = tk.Entry(sum_view, textvariable=sum_var)
