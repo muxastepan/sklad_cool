@@ -63,8 +63,11 @@ class Table:
     def commit(self):
         self.adapter.commit()
 
-    def edit(self, column_name: str, value, rec_id: str):
-        self.adapter.update(self.table_name, column_name, value, rec_id, self.column_names[0])
+    def edit(self, column_name: str, value, rec_id: str, other_columns: Dict[str, str]):
+        if self.p_key_column_name:
+            self.adapter.update_by_id(self.table_name, column_name, value, rec_id, self.column_names[0])
+        else:
+            self.adapter.update(self.table_name, column_name, value, other_columns)
 
     def add(self, data_list: Union[list, tuple]):
         self.adapter.insert(self.table_name, data_list)
@@ -96,6 +99,8 @@ class Table:
         return data
 
     def select_by_date(self, date_start, date_end):
+        if not self.date_column:
+            return self.select_all()
         try:
             data = \
                 self.adapter.select(self.table_name,
@@ -119,18 +124,18 @@ class AttrTable(Table):
         super().__init__(adapter, table_name, (column_name,), (heading,), column_name)
         self.update_var_attrs()
 
-    def add(self, data: Union[tuple, list]):
-        self.adapter.insert(self.table_name, data)
+    def add(self, data: Union[tuple, list], if_not_exist=False):
+        self.adapter.insert(self.table_name, data, if_not_exist=if_not_exist)
 
     def update_var_attrs(self):
         self.var_attrs = [self.select_all()]
 
 
-class EmployeesTable(AttrTable):
+class EmployeesTable(Table):
     def __init__(self, adapter: Adapter):
-        super().__init__(adapter, 'employees',
-                         'employee_name',
-                         'Имя')
+        super().__init__(adapter, 'employees', ('employee_name', 'payment', 'tax'), ('Имя', 'Аванс', 'Налоговый вычет'),
+                         'employee_name')
+        self.update_var_attrs()
 
     def add(self, data: Union[tuple, list]):
         data = [data[0].strip(' ')]
@@ -143,10 +148,43 @@ class EmployeesTable(AttrTable):
         except AdapterFKException:
             raise EmpTableValUsedInOtherTable
 
-    def edit(self, column_name: str, value, rec_id: str):
+    def edit(self, column_name: str, value, rec_id: str, other_columns: Dict[str, str] = None):
+        try:
+            value.strip(' ')
+        except AttributeError:
+            pass
+        try:
+            super().edit(column_name, value, rec_id, other_columns)
+        except AdapterFKException:
+            raise EmpTableValUsedInOtherTable
+
+    def update_var_attrs(self):
+        self.var_attrs.clear()
+        for column in self.column_names:
+            self.var_attrs.append(self.select_columns((column,)))
+
+
+class EmployeesNameTable(AttrTable):
+    def __init__(self, adapter: Adapter):
+        super().__init__(adapter, 'emp_names',
+                         'employee_name',
+                         'Имя')
+
+    def add(self, data: Union[tuple, list], if_not_exist=False):
+        data = [data[0].strip(' ')]
+        super().add(data, if_not_exist=if_not_exist)
+
+    def remove(self, attr: str, value: str):
         value.strip(' ')
         try:
-            super().edit(column_name, value, rec_id)
+            super().remove(attr, value)
+        except AdapterFKException:
+            raise EmpTableValUsedInOtherTable
+
+    def edit(self, column_name: str, value, rec_id: str, other_columns: Dict[str, str] = None):
+        value.strip(' ')
+        try:
+            super().edit(column_name, value, rec_id, other_columns)
         except AdapterFKException:
             raise EmpTableValUsedInOtherTable
 
@@ -154,21 +192,21 @@ class EmployeesTable(AttrTable):
 class SalaryPerSizeTable(Table):
     def __init__(self, adapter: Adapter):
         super().__init__(adapter, 'salary_per_size',
-                         ('size', 'salary'),
-                         ('Размер', 'Оплата'),
-                         'size')
+                         ('size', 'salary', 'type'),
+                         ('Размер', 'Оплата', 'Тип'))
         self.attr_tables = self._fill_attr_tables()
         self.update_var_attrs()
 
     def _fill_attr_tables(self):
-        attr_tables = [AttrTable(self.adapter, 'products_sizes', 'sizes', 'Размеры')]
+        attr_tables = [AttrTable(self.adapter, 'products_sizes', 'sizes', 'Размеры'),
+                       AttrTable(self.adapter, 'products_types', 'types', 'Типы')]
         return attr_tables
 
     def update_var_attrs(self):
         self.var_attrs.clear()
-        for attr in self.attr_tables:
-            self.var_attrs.append(attr.select_all())
+        self.var_attrs.append(self.attr_tables[0].select_all())
         self.var_attrs.append(self.select_columns(('salary',)))
+        self.var_attrs.append(self.attr_tables[1].select_all())
 
 
 class ProductsTable(Table):
@@ -186,7 +224,7 @@ class ProductsTable(Table):
                        AttrTable(self.adapter, 'products_types', 'types', 'Типы'),
                        AttrTable(self.adapter, 'products_subtypes', 'subtypes', 'Подтипы'),
                        AttrTable(self.adapter, 'products_colors', 'colors', 'Цвета'),
-                       EmployeesTable(self.adapter)]
+                       EmployeesNameTable(self.adapter)]
         return attr_tables
 
     def next_id(self):
@@ -198,9 +236,10 @@ class ProductsTable(Table):
     def add_to_attrs_tables(self, data_list):
         if not data_list[3]:
             data_list[3] = 'Пусто'
-        for i, table in enumerate(self.attr_tables):
-            self.attr_tables[i].add((data_list[i + 1],))
-        self.attr_tables[-1].add((data_list[7],))
+        for i in range(len(self.attr_tables) - 1):
+            self.attr_tables[i].add((data_list[i + 1],), if_not_exist=True)
+        self.attr_tables[-1].add((data_list[6],), if_not_exist=True)
+        self.attr_tables[-1].add((data_list[7],), if_not_exist=True)
 
     def add(self, data_list, if_not_exist=False):
         if data_list[3] == 'Пусто':
@@ -237,11 +276,11 @@ class ProductsTable(Table):
                 res_data.append([TypeIdentifier.identify_parse(val) for val in rec])
         return res_data
 
-    def edit(self, column_name: str, value, rec_id: str):
+    def edit(self, column_name: str, value, rec_id: str, other_columns: Dict[str, str] = None):
         if column_name == self.column_names[0]:
             raise ProdTableEditIdException
         try:
-            super().edit(column_name, value, rec_id)
+            super().edit(column_name, value, rec_id, other_columns)
         except AdapterFKException:
             raise ProdTableAttrNotFoundException(value)
 
@@ -265,7 +304,7 @@ class ProductsTable(Table):
 class SalaryTable(Table):
     def __init__(self, adapter: Adapter):
         super().__init__(adapter, 'all_recs_by_emp', ('emp_name', 'salary'),
-                         ('Имя сотрудника', 'Оплата'),
+                         ('Ф.И.О.', 'К начислению'),
                          date_column='product_date_stored')
 
     def select_all(self):
@@ -297,15 +336,16 @@ class SalaryTable(Table):
 
 class AdvancedSalaryTable(Table):
     def __init__(self, adapter: Adapter):
-        super().__init__(adapter, 'all_recs_by_emp', ('product_size', 'emp_name', 'count', 'salary'),
-                         ('Размер', 'Имя сотрудника', 'Количество', 'Оплата'),
+        super().__init__(adapter, 'all_recs_by_emp', ('product_size', 'product_type', 'emp_name', 'count', 'salary'),
+                         ('Размер', 'Тип', 'Имя сотрудника', 'Количество', 'Оплата'),
                          date_column='product_date_stored')
 
     def select_all(self):
         try:
             data = self.adapter.select(self.table_name, columns=(
-                'product_size', 'emp_name', 'COUNT((product_size,emp_name))', 'SUM(salary)'),
-                                       group_by=('product_size', 'emp_name',))
+                'product_size', 'product_type', 'emp_name', 'COUNT((product_size,product_type, emp_name))',
+                'SUM(salary)'),
+                                       group_by=('product_size', 'product_type', 'emp_name'))
         except AdapterRecNotExistException:
             print('Warning: DB is empty')
             return []
@@ -316,8 +356,9 @@ class AdvancedSalaryTable(Table):
         try:
             data = \
                 self.adapter.select(self.table_name, columns=(
-                    'product_size', 'emp_name', 'COUNT((product_size,emp_name))', 'SUM(salary)'),
-                                    group_by=('product_size', 'emp_name',),
+                    'product_size', 'product_type', 'emp_name', 'COUNT((product_size,product_type, emp_name))',
+                    'SUM(salary)'),
+                                    group_by=('product_size', 'product_type', 'emp_name'),
                                     conditions=f"{self.date_column} BETWEEN '{date_start}' AND '{date_end}'")
         except AdapterRecNotExistException:
             print('WARNING: DB is empty')

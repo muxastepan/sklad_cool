@@ -1,0 +1,11 @@
+BTN_STANDARD = ('#d9b463', '#6388d9')
+BTN_HOVER = ('#d99c63', '#6d63d9')
+TEXT_COLOR = ('#000000', '#f4f4f4')
+FRAME_COLOR = ('#f1f1f1', '#0c0c0c')
+DATA_GRID_EVEN = ('#f1f1f1', '#0c0c0c')
+DATA_GRID_ODD = ('#f3deb0', '#616b81')
+SUCCESS_STANDARD = ('#007508', '#4d5566')
+SUCCESS_HOVER = '#006708'
+FAIL_STANDARD = ('#ff6f00', '#6d63d9')
+FAIL_HOVER = ('#aa4b00','#5246d2')
+TAB_SCROLL = ('#e1e1e1', '#404040')

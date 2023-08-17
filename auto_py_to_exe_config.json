@@ -1,0 +1,101 @@
+{
+ "version": "auto-py-to-exe-configuration_v1",
+ "pyinstallerOptions": [
+  {
+   "optionDest": "noconfirm",
+   "value": true
+  },
+  {
+   "optionDest": "filenames",
+   "value": "C:/Users/User/Desktop/\u0420\u0430\u0431\u043e\u0442\u0430/sklad/main.py"
+  },
+  {
+   "optionDest": "onefile",
+   "value": false
+  },
+  {
+   "optionDest": "console",
+   "value": false
+  },
+  {
+   "optionDest": "name",
+   "value": "SKLAD"
+  },
+  {
+   "optionDest": "ascii",
+   "value": false
+  },
+  {
+   "optionDest": "clean_build",
+   "value": false
+  },
+  {
+   "optionDest": "strip",
+   "value": false
+  },
+  {
+   "optionDest": "noupx",
+   "value": false
+  },
+  {
+   "optionDest": "disable_windowed_traceback",
+   "value": false
+  },
+  {
+   "optionDest": "embed_manifest",
+   "value": true
+  },
+  {
+   "optionDest": "uac_admin",
+   "value": false
+  },
+  {
+   "optionDest": "uac_uiaccess",
+   "value": false
+  },
+  {
+   "optionDest": "win_private_assemblies",
+   "value": false
+  },
+  {
+   "optionDest": "win_no_prefer_redirects",
+   "value": false
+  },
+  {
+   "optionDest": "bootloader_ignore_signals",
+   "value": false
+  },
+  {
+   "optionDest": "argv_emulation",
+   "value": false
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/User/Desktop/\u0420\u0430\u0431\u043e\u0442\u0430/sklad/settings;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/User/Desktop/\u0420\u0430\u0431\u043e\u0442\u0430/sklad/matrix;matrix/"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "pylibdmtx.pylibdmtx"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "babel.numbers"
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/User/AppData/Local/Programs/Python/Python38/Lib/site-packages/customtkinter;customtkinter/"
+  },
+  {
+   "optionDest": "binaries",
+   "value": "C:/Users/User/AppData/Local/Programs/Python/Python38/Lib/site-packages/pylibdmtx/libdmtx-64.dll;."
+  }
+ ],
+ "nonPyinstallerOptions": {
+  "increaseRecursionLimit": true,
+  "manualArguments": ""
+ }
+}

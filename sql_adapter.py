@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Dict
 import psycopg2
 import psycopg2.errors
 
@@ -61,7 +61,7 @@ class Adapter:
     def rollback(self):
         self.con.rollback()
 
-    def insert(self, table_name: str, data_list: Union[list, tuple], column_order: tuple = None):
+    def insert(self, table_name: str, data_list: Union[list, tuple], column_order: tuple = None, if_not_exist=False):
         query = f"INSERT INTO {table_name} "
         if column_order:
             if len(column_order) == 1:
@@ -71,6 +71,8 @@ class Adapter:
 
         values_placeholder = f"({'%s,' * (len(data_list) - 1) + '%s'})"
         query += f"VALUES {values_placeholder}"
+        if if_not_exist:
+            query += " ON CONFLICT DO NOTHING"
         try:
             self.cur.execute(query,
                              data_list)
@@ -133,13 +135,37 @@ class Adapter:
         except psycopg2.errors.ForeignKeyViolation as ex:
             raise AdapterFKException(repr(ex))
 
-    def update(self, table_name: str, column_name: str, column_value: str, rec_id: str = None,
-               column_id_name: str = None):
+    def update_by_id(self, table_name: str, column_name: str, column_value: str, rec_id: str = None,
+                     column_id_name: str = None):
         query = f"UPDATE {table_name} SET {column_name}=%s"
         if rec_id and column_id_name:
             query += f" WHERE {column_id_name} = %s"
         try:
             self.cur.execute(query, (column_value, rec_id))
+        except psycopg2.errors.UniqueViolation:
+            raise AdapterUniqueValueException
+        except psycopg2.errors.NotNullViolation:
+            raise AdapterNotNullException
+        except psycopg2.errors.CheckViolation:
+            raise AdapterWrongInputException
+        except psycopg2.errors.ForeignKeyViolation as ex:
+            raise AdapterFKException(repr(ex))
+        except psycopg2.DataError:
+            raise AdapterWrongInputException
+        except psycopg2.errors.DatatypeMismatch:
+            raise AdapterWrongInputException
+
+    def update(self, table_name: str, column_name: str, column_value: str, other_columns: Dict[str, str]):
+        placeholders = [column_value]
+        query = f"UPDATE {table_name} SET {column_name}=%s"
+        query += " WHERE"
+        if other_columns:
+            for col, val in other_columns.items():
+                query += f" {col} = %s AND"
+                placeholders.append(val)
+            query = query.rstrip('AND')
+        try:
+            self.cur.execute(query, placeholders)
         except psycopg2.errors.UniqueViolation:
             raise AdapterUniqueValueException
         except psycopg2.errors.NotNullViolation:

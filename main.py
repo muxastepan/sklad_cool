@@ -1,18 +1,23 @@
 import os
 import sys
+import tkinter
 
 from frames import *
 from misc import SettingsFileManager, resource_path
 from tables import *
 import logging
+import customtkinter as ctk
 
 
-class MainFrame(tk.Tk):
+class MainFrame(ctk.CTk):
     def __init__(self):
-        super().__init__()
+        super().__init__(fg_color=FRAME_COLOR)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
         self.settings = SettingsFileManager.read_settings()
         self.title('СкладУчет')
         self.geometry(f"{self.settings['window_settings']['width']}x{self.settings['window_settings']['height']}")
+        ctk.set_appearance_mode(self.settings['window_settings']['theme'])
         try:
             self.sql_adapter = Adapter(dbname=self.settings['sql_settings']["db_name"],
                                        host=self.settings['sql_settings']["host"],
@@ -31,36 +36,38 @@ class MainFrame(tk.Tk):
         os.execl(program, program, *sys.argv)
 
     def _build(self):
-        self.employees_table = EmployeesTable(self.sql_adapter)
         self.salary_per_size_table = SalaryPerSizeTable(self.sql_adapter)
         self.product_table = ProductsTable(self.sql_adapter)
         self.salary_table = SalaryTable(self.sql_adapter)
         self.adv_salary_table = AdvancedSalaryTable(self.sql_adapter)
+        self.employee_table = EmployeesTable(self.sql_adapter)
 
-        self.menu = Menu(self, ('Настройки', 'Архив товаров'), SettingsMenu(self, self.settings),
-                         ProdArchiveMenu(self, self.product_table))
+        self.menu = Menu(self, ('Настройки', 'Архив товаров', 'Оплата за размер'), SettingsMenu(self, self.settings),
+                         ProdArchiveMenu(self, self.product_table), SalaryPerSizeMenu(self, self.salary_per_size_table))
         self.config(menu=self.menu)
-
         self.tabs = TabScroll(self)
-        self.storage_tab = TabFrame(self.tabs)
+        self.storage_tab = TabFrame(self.tabs, 'Склад')
         self.storage_tab.fill_data_frames(
             ProductDataFrame(self.storage_tab, self.product_table, self.settings['prod_table_settings']['editable'],
                              self.settings['prod_table_settings']['deletable']))
 
-        self.salary_tab = SalaryTabFrame(self.tabs)
+        self.salary_tab = SalaryTabFrame(self.tabs, "Расчет зарплаты")
         self.salary_tab.fill_data_frames(
-            DataFrame(self.salary_tab, self.salary_per_size_table, editable=True, deletable=True,
-                      preload_from_table=True, straight_mode=True),
             DataFrame(self.salary_tab, self.adv_salary_table, can_add=False, preload_from_table=True),
             DataFrame(self.salary_tab, self.salary_table, can_add=False, preload_from_table=True)
         )
+        self.employee_tab = TabFrame(self.tabs, 'Сотрудники')
+        self.employee_tab.fill_data_frames(
+            DataFrame(self.employee_tab, self.employee_table, can_add=True, preload_from_table=True, editable=True,
+                      deletable=True)
+        )
+
+        self.tabs.add(self.storage_tab.caption, self.storage_tab)
+        self.tabs.add(self.salary_tab.caption, self.salary_tab)
+        self.tabs.add(self.employee_tab.caption, self.employee_tab)
 
     def run(self):
-        self.storage_tab.show()
-        self.salary_tab.show()
-        self.tabs.add(self.storage_tab, text='Склад')
-        self.tabs.add(self.salary_tab, text='Расчёт зарплаты')
-        self.tabs.pack(fill=tk.BOTH)
+        self.tabs.show()
         self.mainloop()
 
 

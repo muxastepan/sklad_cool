@@ -16,6 +16,13 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+class DocHtmlWriter:
+    @staticmethod
+    def write_html(data):
+        with open(resource_path('doc.html'), 'w') as f:
+            f.writelines(())
+
+
 class SettingsFileManager:
     @staticmethod
     def read_settings():

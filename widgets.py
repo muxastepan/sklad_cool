@@ -1,27 +1,82 @@
+import datetime
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Dict, Literal
 from tkinter import messagebox
 from tables import *
 from tkcalendar import DateEntry
+import customtkinter as ctk
+from gui_colors import *
 
 
-class DateSelector(tk.Frame):
+class StandardButton(ctk.CTkButton):
+    def __init__(self, parent, text, command):
+        super().__init__(parent, text=text, command=command,
+                         fg_color=BTN_STANDARD,
+                         hover_color=BTN_HOVER,
+                         text_color=TEXT_COLOR
+                         )
+
+
+class FailButton(ctk.CTkButton):
+    def __init__(self, parent, text, command):
+        super().__init__(parent, text=text, command=command,
+                         fg_color=FAIL_STANDARD,
+                         hover_color=FAIL_HOVER,
+                         text_color=TEXT_COLOR
+                         )
+
+
+class SuccessButton(ctk.CTkButton):
+    def __init__(self, parent, text, command):
+        super().__init__(parent, text=text, command=command,
+                         fg_color=SUCCESS_STANDARD,
+                         hover_color=SUCCESS_HOVER,
+                         text_color=TEXT_COLOR
+                         )
+
+
+class DateSelector(ctk.CTkFrame):
+    MONTHS = {
+        'Январь': '01',
+        'Февраль': '02',
+        'Март': '03',
+        'Апрель': '04',
+        'Май': '05',
+        'Июнь': '06',
+        'Июль': '07',
+        'Август': '08',
+        'Сентябрь': '09',
+        'Октябрь': '10',
+        'Ноябрь': '11',
+        'Декабрь': '12',
+    }
+
     def __init__(self, parent, *con_data_frames):
-        super().__init__(parent)
+        super().__init__(parent, fg_color=FRAME_COLOR)
         self.con_data_frames = con_data_frames
         self.parent = parent
-        self.date_start = DateEntry(self, locale='ru_RU')
-        self.date_end = DateEntry(self, locale='ru_RU')
-        self.btn = tk.Button(self, text='Поиск', command=self.search_by_date)
+        self.month_entry = ctk.CTkOptionMenu(self, values=[month for month in DateSelector.MONTHS.keys()],
+                                             fg_color=BTN_STANDARD,
+                                             button_hover_color=BTN_HOVER,
+                                             dropdown_hover_color=BTN_HOVER,
+                                             dropdown_fg_color=FRAME_COLOR,
+                                             text_color=TEXT_COLOR,
+                                             button_color=BTN_STANDARD)
+        self.year = tk.StringVar(value=str(datetime.date.today().year))
+        self.year_entry = ctk.CTkEntry(self, textvariable=self.year, border_color=BTN_STANDARD)
+        self.btn = StandardButton(self, text='Поиск', command=self.search_by_date)
+
+        self.rowconfigure(0, weight=1, uniform='a')
+        self.columnconfigure(0, weight=1, uniform='a')
+        self.columnconfigure(1, weight=1, uniform='a')
+        self.columnconfigure(2, weight=1, uniform='a')
 
     def search_by_date(self):
-        try:
-            beg = datetime.datetime.strptime(self.date_start.get(), '%d.%m.%Y').date()
-            end = datetime.datetime.strptime(self.date_end.get(), '%d.%m.%Y').date()
-        except ValueError:
-            MessageBox('ОШИБКА: Дата введена неверно', 'ERROR')
-            return
+        year = self.year.get()
+        month = DateSelector.MONTHS[self.month_entry.get()]
+        beg = f'01.{month}.{year}'
+        end = f'31.{month}.{year}'
         res_data = []
         for data_frame in self.con_data_frames:
             try:
@@ -35,25 +90,23 @@ class DateSelector(tk.Frame):
             data_frame.table.commit()
             data_frame.data_grid.update_table_gui_with_data(res_data[i])
 
-
     def show(self, row=0, column=0, columnspan=1):
-        self.grid(row=row, column=column, columnspan=columnspan)
-        tk.Label(self, text='Начало периода:').grid(row=0, column=0)
-        self.date_start.grid(row=0, column=1)
-        tk.Label(self, text='Конец периода:').grid(row=0, column=2)
-        self.date_end.grid(row=0, column=3)
-        self.btn.grid(row=0, column=4, padx=10)
+        self.grid(row=row, column=column, columnspan=columnspan, sticky=tk.NSEW)
+        self.month_entry.grid(row=0, column=0, sticky=tk.W)
+        self.year_entry.grid(row=0, column=1, sticky=tk.W)
+        self.btn.grid(row=0, column=2, padx=10, sticky=tk.W)
 
 
-class QuestionBox(tk.Toplevel):
+class QuestionBox(ctk.CTkToplevel):
     def __init__(self, parent, text: str, callback: Callable, *args):
         super().__init__(parent)
         self.callback = callback
         self.args = args
         self.parent = parent
-        tk.Label(self, text=text).pack(side=tk.TOP)
-        tk.Button(self, text='Нет', command=self.destroy, width=20).pack(side=tk.LEFT, padx=20)
-        tk.Button(self, text='Да', command=self.run_callback, width=20).pack(side=tk.RIGHT, padx=20)
+        ctk.CTkLabel(self, text=text).pack(side=tk.TOP, pady=10, padx=10)
+        FailButton(self, text='Нет', command=self.destroy).pack(side=tk.LEFT, padx=20, pady=10)
+        SuccessButton(self, text='Да', command=self.run_callback).pack(side=tk.RIGHT, padx=20, pady=10)
+        self.focus()
 
     def run_callback(self):
         if self.args:
@@ -66,6 +119,7 @@ class QuestionBox(tk.Toplevel):
 class RestartQuestionBox(QuestionBox):
     def __init__(self, parent, text):
         super().__init__(parent, text, parent.restart)
+        self.title('Перезапуск')
 
 
 class AddAttrQuestionBox(QuestionBox):
@@ -75,6 +129,7 @@ class AddAttrQuestionBox(QuestionBox):
         else:
             callback = parent.table.attr_tables[column_ind].add
         super().__init__(parent, text, callback, *args)
+        self.title('Добавление аттрибута')
 
     def run_callback(self):
         try:
@@ -96,12 +151,15 @@ class MessageBox:
             tk.messagebox.showerror(text, text)
 
 
-class DataGridView(tk.Frame):
+class DataGridView(ctk.CTkFrame):
 
     def __init__(self, parent, table: Table, editable: bool = False, deletable: bool = False,
                  preload_from_table: bool = False, straight_mode: bool = True, spec_ops: Dict[str, Callable] = None,
                  select_func: Callable = None):
-        super().__init__(parent)
+        super().__init__(parent, fg_color=FRAME_COLOR)
+        self.columnconfigure(0, weight=1, uniform='a')
+        self.rowconfigure(0, weight=1, uniform='a')
+
         self.select_func = select_func
         self.spec_ops = spec_ops
         self.straight_mode = straight_mode
@@ -114,11 +172,38 @@ class DataGridView(tk.Frame):
             self.data = self.select_func()
         else:
             self.data = []
-        self.y_scroll_bar = tk.Scrollbar(self)
-        self.x_scroll_bar = tk.Scrollbar(self, orient=tk.HORIZONTAL)
-        self.table_gui = ttk.Treeview(self)
+
+        self.table_gui = ttk.Treeview(self, show='headings')
+        self.check_theme()
+        self.y_scroll_bar = ctk.CTkScrollbar(self, command=self.table_gui.yview, fg_color=FRAME_COLOR,
+                                             button_color=BTN_STANDARD,
+                                             button_hover_color=BTN_HOVER)
+        self.table_gui.configure(yscrollcommand=self.y_scroll_bar.set)
         self.__editable = editable
         self._build_table()
+
+    def check_theme(self):
+        mode = ctk.get_appearance_mode()
+        if mode == 'Dark':
+            ind = 1
+        else:
+            ind = 0
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure('Treeview.Heading', background=BTN_STANDARD[ind], foreground='white' if ind == 1 else 'black',
+                        font=('Calibri', 11))
+        style.configure("Treeview",
+                        background=FRAME_COLOR[ind],
+                        rowheight=25,
+                        foreground='white' if ind == 1 else 'black',
+                        fieldbackground='white'
+                        )
+        style.layout("Treeview", [('Treeview.treearea', {'sticky': 'nswe'})])
+        style.map('Treeview', background=[('selected', BTN_STANDARD[ind])],
+                  foreground=[('selected', 'white' if ind == 1 else 'black')])
+        style.map('Treeview.Heading', background=[('selected', BTN_HOVER[ind])])
+        self.table_gui.tag_configure('odd', background=DATA_GRID_ODD[ind])
+        self.table_gui.tag_configure('even', background=DATA_GRID_EVEN[ind])
 
     @property
     def editable(self):
@@ -175,19 +260,24 @@ class DataGridView(tk.Frame):
             item = item[0]
         column = int(self.table_gui.identify_column(event.x).replace('#', '')) - 1
         edit_entry = AutoCompletionCombobox(self.table_gui,
-                                            values=[self.table_gui.item(item)['values'][column]])
+                                            values=[self.table_gui.item(item)['values'][column]],
+                                            width=self.table_gui.column(column)['width'], height=25)
         edit_entry.focus()
-        edit_entry.place(x=column * 100, y=25 + (event.y // 20 - 1) * 20, width=self.table_gui.column(column)['width'])
+        edit_entry.place(x=column * self.table_gui.column(column)['width'], y=20 + (event.y // 25 - 1) * 25)
 
         def save_edit():
             data = TypeIdentifier.identify_parse(edit_entry.get())
             if not data:
                 data = None
             if self.straight_mode:
-                rec_id = self.table_gui.item(item, 'values')[0]
+                row_data = self.table_gui.item(item, 'values')
+                rec_id = row_data[0]
 
                 try:
-                    self.table.edit(self.table.column_names[column], data, rec_id)
+                    self.table.edit(self.table.column_names[column], data, rec_id,
+                                    {self.table.column_names[i]: row_data[i] for i in
+                                     range(len(self.table.column_names)) if
+                                     i != column})
                 except AdapterException as ex:
                     edit_entry.destroy()
                     MessageBox(ex, 'ERROR')
@@ -240,16 +330,12 @@ class DataGridView(tk.Frame):
         for row in self.data:
             self.add_row(row)
 
-        self.y_scroll_bar.configure(command=self.table_gui.yview)
-        self.y_scroll_bar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        self.x_scroll_bar.configure(command=self.table_gui.xview)
-        self.x_scroll_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.y_scroll_bar.grid(row=0, column=1, rowspan=2, sticky=tk.NS)
 
         if self.editable:
             self.table_gui.bind("<Double-Button-1>", self.set_cell_value)
         self.table_gui.bind("<Button-3>", self.show_rec_menu)
-        self.table_gui.pack(fill=tk.BOTH)
+        self.table_gui.grid(row=0, column=0, sticky=tk.NSEW)
 
     def delete_record(self, event: tk.Event):
         items = self.table_gui.selection()
@@ -283,7 +369,7 @@ class DataGridView(tk.Frame):
                 continue
             if not val:
                 data[i] = 'Пусто'
-        self.table_gui.insert('', tk.END, values=data)
+        self.table_gui.insert('', tk.END, values=data, tags=('odd',) if self._row_count % 2 == 1 else ('even',))
 
     def delete_row(self, rec_id: Union[int, str]):
         self._row_count -= 1
@@ -293,22 +379,37 @@ class DataGridView(tk.Frame):
                 self.table_gui.delete(row)
 
 
-class AutoCompletionCombobox(ttk.Combobox):
-    def __init__(self, root, values=None):
-        super().__init__(root, values=values)
-        self.bind('<KeyRelease>', self.check_input)
-        self.old_values = self['values']
+class AutoCompletionCombobox(ctk.CTkComboBox):
+    def __init__(self, root, width=None, height=None, values=None):
+        super().__init__(root, values=[str(i) for i in values if i] if values else None,
+                         fg_color=FRAME_COLOR,
+                         button_color=BTN_STANDARD,
+                         button_hover_color=BTN_HOVER,
+                         dropdown_fg_color=FRAME_COLOR,
+                         border_color=BTN_STANDARD,
+                         dropdown_hover_color=BTN_HOVER,
+                         dropdown_text_color=TEXT_COLOR,
+                         text_color=TEXT_COLOR,
+                         corner_radius=0
+                         )
+        if width:
+            self.configure(width=width)
+        if height:
+            self.configure(height=height)
+        self.configure(command=self.check_input)
+        self.old_values = self.cget('values')
         if self.old_values:
             self.set(self.old_values[0])
+        else:
+            self.set('Пусто')
 
-    def check_input(self, event):
-        value = self.get()
+    def check_input(self, value):
 
         if value != '':
             data = []
             for item in self.old_values:
                 if value in item:
                     data.append(item)
-            self['values'] = data
+            self.configure(values=data)
         else:
-            self['values'] = self.old_values
+            self.configure(values=self.old_values)

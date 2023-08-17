@@ -42,7 +42,7 @@ class ProgressFrame(tk.Frame):
         try:
             if self.create:
                 self.__run_create_script()
-            self.progress_bar['value'] += 10
+            self.progress_bar['value'] += 8.34
             conn = psycopg2.connect(dbname=self.dbname, user="postgres", password=self.pw)
             cur = conn.cursor()
             cur.execute('''
@@ -52,7 +52,8 @@ class ProgressFrame(tk.Frame):
                 PRIMARY KEY(sizes)
             );'''
                         )
-            self.progress_bar['value'] += 10
+
+            self.progress_bar['value'] += 8.34
             cur.execute('''
             CREATE TABLE IF NOT EXISTS salary_per_size
             (
@@ -63,7 +64,8 @@ class ProgressFrame(tk.Frame):
                     REFERENCES products_sizes(sizes)
             );
             ''')
-            self.progress_bar['value'] += 10
+
+            self.progress_bar['value'] += 8.34
             cur.execute('''
             CREATE TABLE IF NOT EXISTS products_types
             (
@@ -74,7 +76,8 @@ class ProgressFrame(tk.Frame):
                 '[а-яА-Я]*')
             );'''
                         )
-            self.progress_bar['value'] += 10
+
+            self.progress_bar['value'] += 8.34
             cur.execute('''
             CREATE TABLE IF NOT EXISTS products_subtypes
             (
@@ -85,7 +88,8 @@ class ProgressFrame(tk.Frame):
                 '[а-яА-Я]*')
             );'''
                         )
-            self.progress_bar['value'] += 10
+
+            self.progress_bar['value'] += 8.34
             cur.execute('''
             CREATE TABLE IF NOT EXISTS products_colors
             (
@@ -97,7 +101,8 @@ class ProgressFrame(tk.Frame):
 
             );'''
                         )
-            self.progress_bar['value'] += 10
+
+            self.progress_bar['value'] += 8.34
             cur.execute('''
             CREATE TABLE IF NOT EXISTS employees
             (
@@ -108,7 +113,8 @@ class ProgressFrame(tk.Frame):
                 '[а-яА-Я ]*')
 
             )''')
-            self.progress_bar['value'] += 10
+
+            self.progress_bar['value'] += 8.34
             cur.execute('''
             CREATE TABLE IF NOT EXISTS products
             (
@@ -152,28 +158,62 @@ class ProgressFrame(tk.Frame):
                 '[а-яА-Я]*')
             );'''
                         )
-            self.progress_bar['value'] += 10
+
+            self.progress_bar['value'] += 8.34
             cur.execute('''
                 CREATE OR REPLACE VIEW by_recs
-                    AS SELECT product_size,
-                    laid_by,rolled_by,
-                    product_date_stored,
-                    salary*0.55 as l_salary,
-                    salary*0.45 as r_salary
-                    FROM products
-                    LEFT JOIN salary_per_size
-                    ON products.product_size=salary_per_size.size;
+                AS SELECT product_size, product_type,
+                laid_by,rolled_by,
+                product_date_stored,
+                salary*0.55 as l_salary,
+                salary*0.45 as r_salary
+                FROM products
+                LEFT JOIN salary_per_size
+                ON (products.product_size,products.product_type)=(salary_per_size.size,salary_per_size.type);
             ''')
-            self.progress_bar['value'] += 10
+
+            self.progress_bar['value'] += 8.34
             cur.execute('''
                 CREATE OR REPLACE VIEW all_recs_by_emp
-                    AS SELECT product_date_stored,product_size,laid_by as emp_name,l_salary as salary
-                    FROM by_recs
-                    UNION ALL
-                    SELECT product_date_stored,product_size,rolled_by,r_salary
-                    FROM by_recs;
+                AS SELECT product_date_stored,product_size,product_type,laid_by as emp_name,l_salary as salary
+                FROM by_recs
+                UNION ALL
+                SELECT product_date_stored,product_size,product_type,rolled_by,r_salary
+                FROM by_recs;
             ''')
-            self.progress_bar['value'] += 10
+
+            self.progress_bar['value'] += 8.34
+            cur.execute('''
+            ALTER TABLE IF EXISTS salary_per_size
+            ADD COLUMN IF NOT EXISTS type VARCHAR;
+            
+            ALTER TABLE salary_per_size DROP CONSTRAINT IF EXISTS  salary_per_size_type_fkey; 
+            
+            ALTER TABLE IF EXISTS salary_per_size
+                ADD CONSTRAINT salary_per_size_type_fkey
+                FOREIGN KEY (type)
+                REFERENCES products_types(types);
+            ALTER TABLE salary_per_size DROP CONSTRAINT IF EXISTS  salary_per_size_type_size_unique; 
+            ALTER TABLE IF EXISTS salary_per_size
+                ADD CONSTRAINT salary_per_size_type_size_unique
+                UNIQUE (type,size);
+            ''')
+
+            self.progress_bar['value'] += 8.34
+            cur.execute('''
+                        CREATE OR REPLACE VIEW emp_names
+                            AS SELECT employee_name FROM employees
+                        ''')
+
+            self.progress_bar['value'] += 8.34
+            cur.execute('''
+            ALTER TABLE IF EXISTS employees
+            ADD COLUMN IF NOT EXISTS payment INT;
+            ALTER TABLE IF EXISTS employees
+            ADD COLUMN IF NOT EXISTS tax INT;
+            ''')
+
+
             conn.commit()
             conn.close()
         except Exception as ex:
