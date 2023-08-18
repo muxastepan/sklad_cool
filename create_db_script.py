@@ -161,31 +161,23 @@ class ProgressFrame(tk.Frame):
 
             self.progress_bar['value'] += 8.34
             cur.execute('''
-                CREATE OR REPLACE VIEW by_recs
-                AS SELECT product_size, product_type,
-                laid_by,rolled_by,
-                product_date_stored,
-                salary*0.55 as l_salary,
-                salary*0.45 as r_salary
-                FROM products
-                LEFT JOIN salary_per_size
-                ON (products.product_size,products.product_type)=(salary_per_size.size,salary_per_size.type);
-            ''')
-
-            self.progress_bar['value'] += 8.34
-            cur.execute('''
-                CREATE OR REPLACE VIEW all_recs_by_emp
-                AS SELECT product_date_stored,product_size,product_type,laid_by as emp_name,l_salary as salary
-                FROM by_recs
-                UNION ALL
-                SELECT product_date_stored,product_size,product_type,rolled_by,r_salary
-                FROM by_recs;
-            ''')
-
-            self.progress_bar['value'] += 8.34
-            cur.execute('''
-            ALTER TABLE IF EXISTS salary_per_size
-            ADD COLUMN IF NOT EXISTS type VARCHAR;
+            CREATE OR REPLACE function f_add_col(_tbl regclass, _col  text, _type regtype)
+                  RETURNS bool
+                  LANGUAGE plpgsql AS
+                $func$
+                BEGIN
+                   IF EXISTS (SELECT FROM pg_attribute
+                              WHERE  attrelid = _tbl
+                              AND    attname  = _col
+                              AND    NOT attisdropped) THEN
+                      RETURN false;
+                   ELSE
+                      EXECUTE format('ALTER TABLE %s ADD COLUMN %I %s', _tbl, _col, _type);
+                      RETURN true;
+                   END IF;
+                END
+                $func$;
+            SELECT f_add_col('salary_per_size','type','varchar');            
             
             ALTER TABLE salary_per_size DROP CONSTRAINT IF EXISTS  salary_per_size_type_fkey; 
             
@@ -207,12 +199,34 @@ class ProgressFrame(tk.Frame):
 
             self.progress_bar['value'] += 8.34
             cur.execute('''
-            ALTER TABLE IF EXISTS employees
-            ADD COLUMN IF NOT EXISTS payment INT;
-            ALTER TABLE IF EXISTS employees
-            ADD COLUMN IF NOT EXISTS tax INT;
+            SELECT f_add_col('employees','payment','int');
+            SELECT f_add_col('employees','tax','int');
+            SELECT f_add_col('employees','bonus','int');            
             ''')
 
+            self.progress_bar['value'] += 8.34
+            cur.execute('''
+                            DROP VIEW  IF EXISTS by_recs CASCADE;
+                            CREATE OR REPLACE VIEW by_recs
+                            AS SELECT product_size, product_type,
+                            laid_by,rolled_by,
+                            product_date_stored,
+                            salary*0.55 as l_salary,
+                            salary*0.45 as r_salary
+                            FROM products
+                            LEFT JOIN salary_per_size
+                            ON (products.product_size,products.product_type)=(salary_per_size.size,salary_per_size.type);
+                        ''')
+
+            self.progress_bar['value'] += 8.34
+            cur.execute('''                           
+                            CREATE OR REPLACE VIEW all_recs_by_emp
+                            AS SELECT product_date_stored,product_size,product_type,laid_by as emp_name,l_salary as salary
+                            FROM by_recs
+                            UNION ALL
+                            SELECT product_date_stored,product_size,product_type,rolled_by,r_salary
+                            FROM by_recs;
+                        ''')
 
             conn.commit()
             conn.close()

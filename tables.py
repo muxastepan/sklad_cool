@@ -133,7 +133,8 @@ class AttrTable(Table):
 
 class EmployeesTable(Table):
     def __init__(self, adapter: Adapter):
-        super().__init__(adapter, 'employees', ('employee_name', 'payment', 'tax'), ('Имя', 'Аванс', 'Налоговый вычет'),
+        super().__init__(adapter, 'employees', ('employee_name', 'payment', 'tax', 'bonus'),
+                         ('Имя', 'Аванс', 'Налоговый вычет', 'Премия\nДоплаты'),
                          'employee_name')
         self.update_var_attrs()
 

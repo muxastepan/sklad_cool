@@ -60,9 +60,14 @@ class ProdArchiveMenu(tk.Menu):
         self.table = table
         self.parent = parent
         self.add_command(label='Архив товаров', command=self.show_archive_frame)
+        self.archive_toplevel = None
 
     def show_archive_frame(self):
-        ProdArchiveFrame(self, self.table).show()
+        if self.archive_toplevel is None or not self.archive_toplevel.winfo_exists():
+            self.archive_toplevel = ProdArchiveFrame(self, self.table)
+            self.archive_toplevel.show()
+        else:
+            self.archive_toplevel.focus()
 
 
 class SalaryPerSizeMenu(tk.Menu):
@@ -71,9 +76,14 @@ class SalaryPerSizeMenu(tk.Menu):
         self.table = table
         self.parent = parent
         self.add_command(label='Оплата за размер', command=self.show_salary_per_size_frame)
+        self.salary_per_ize_toplevel = None
 
     def show_salary_per_size_frame(self):
-        SalaryPerSizeFrame(self, self.table).show()
+        if self.salary_per_ize_toplevel is None or not self.salary_per_ize_toplevel.winfo_exists():
+            self.salary_per_ize_toplevel = SalaryPerSizeFrame(self, self.table)
+            self.salary_per_ize_toplevel.show()
+        else:
+            self.salary_per_ize_toplevel.focus()
 
 
 class SalaryPerSizeFrame(ctk.CTkToplevel):
@@ -101,21 +111,46 @@ class SettingsMenu(tk.Menu):
         self.add_command(label='Путь к папке с матрицами', command=self.show_matrix_path_settings)
         self.add_command(label='Аттрибуты таблицы...', command=self.show_table_attrs_settings)
         self.add_command(label='Таблица склада...', command=self.show_prod_table_settings)
+        self.prod_toplevel = None
+        self.attrs_toplevel = None
+        self.matrix_toplevel = None
+        self.window_toplevel = None
+        self.sql_toplevel = None
 
     def show_prod_table_settings(self):
-        ProdTableSettingsDialogue(self.parent, self.settings).show()
+        if self.prod_toplevel is None or not self.prod_toplevel.winfo_exists():
+            self.prod_toplevel = ProdTableSettingsDialogue(self.parent, self.settings)
+            self.prod_toplevel.show()
+        else:
+            self.prod_toplevel.focus()
 
     def show_table_attrs_settings(self):
-        TableAttrsSettingsDialogue(self.parent, self.settings).show()
+        if self.attrs_toplevel is None or not self.attrs_toplevel.winfo_exists():
+            self.attrs_toplevel = TableAttrsSettingsDialogue(self.parent, self.settings)
+            self.attrs_toplevel.show()
+        else:
+            self.prod_toplevel.focus()
 
     def show_matrix_path_settings(self):
-        MatrixFolderPathDialogue(self.parent, self.settings).show()
+        if self.matrix_toplevel is None or not self.matrix_toplevel.winfo_exists():
+            self.matrix_toplevel = MatrixFolderPathDialogue(self.parent, self.settings)
+            self.matrix_toplevel.show()
+        else:
+            self.prod_toplevel.focus()
 
     def show_window_settings(self):
-        WindowSettingsDialogue(self.parent, self.settings).show()
+        if self.window_toplevel is None or not self.window_toplevel.winfo_exists():
+            self.window_toplevel = WindowSettingsDialogue(self.parent, self.settings)
+            self.window_toplevel.show()
+        else:
+            self.prod_toplevel.focus()
 
     def show_sql_settings(self):
-        SQLSettingsDialogue(self.parent, self.settings).show()
+        if self.sql_toplevel is None or not self.sql_toplevel.winfo_exists():
+            self.sql_toplevel = SQLSettingsDialogue(self.parent, self.settings)
+            self.sql_toplevel.show()
+        else:
+            self.sql_toplevel.focus()
 
 
 class Menu(tk.Menu):
@@ -141,8 +176,14 @@ class DataFrame(ctk.CTkFrame):
         self.rowconfigure(0, weight=1, uniform='a')
         self.rowconfigure(1, weight=20, uniform='a')
 
+        self.add_toplevel = None
+
     def show_add_dialogue(self):
-        AddDBRecordDialogue(self, self.table).show()
+        if self.add_toplevel is None or not self.add_toplevel.winfo_exists():
+            self.add_toplevel = AddDBRecordDialogue(self, self.table)
+            self.add_toplevel.show()
+        else:
+            self.add_toplevel.focus()
 
     def show(self, row=0, column=0, columnspan=1, rowspan=1, padx=0, pady=0):
         self.grid(row=row, column=column, columnspan=columnspan, sticky=tk.NSEW, rowspan=rowspan, padx=padx, pady=pady)
@@ -164,6 +205,8 @@ class ProductDataFrame(DataFrame):
         self.table = table
         self.columnconfigure(1, weight=1, uniform='a')
         self.columnconfigure(2, weight=1, uniform='a')
+        self.attrs_toplevel = None
+        self.read_barcode_toplevel = None
 
     def show_matrix(self):
         table = self.data_grid.table_gui
@@ -176,13 +219,25 @@ class ProductDataFrame(DataFrame):
             DataMatrixReader.open_matrix(path)
 
     def show_attrs_frame(self):
-        AttrFrame(self, self.table).show()
+        if self.attrs_toplevel is None or not self.attrs_toplevel.winfo_exists():
+            self.attrs_toplevel = AttrFrame(self, self.table)
+            self.attrs_toplevel.show()
+        else:
+            self.attrs_toplevel.focus()
 
     def show_add_dialogue(self):
-        AddProductFrame(self, self.table, self).show()
+        if self.add_toplevel is None or not self.add_toplevel.winfo_exists():
+            self.add_toplevel = AddProductFrame(self, self.table, self)
+            self.add_toplevel.show()
+        else:
+            self.add_toplevel.focus()
 
     def show_delete_bar_code_dialogue(self):
-        ReadBarCodeDialogue(self, self.table).show()
+        if self.read_barcode_toplevel is None or not self.read_barcode_toplevel.winfo_exists():
+            self.read_barcode_toplevel = ReadBarCodeDialogue(self, self.table)
+            self.read_barcode_toplevel.show()
+        else:
+            self.read_barcode_toplevel.bar_code_entry.focus_force()
 
     def show(self, row=0, column=0, columnspan=1, rowspan=1, padx=0, pady=0):
         super().show(row, column, columnspan, rowspan)
@@ -290,7 +345,11 @@ class AddProductDataFrame(AddDataFrame):
         self.parent.destroy()
 
     def show_add_dialogue(self):
-        AddProductRecordDialogue(self, self.table, self.temp_var_attrs).show()
+        if self.add_toplevel is None or not self.add_toplevel.winfo_exists():
+            self.add_toplevel = AddProductRecordDialogue(self, self.table, self.temp_var_attrs)
+            self.add_toplevel.show()
+        else:
+            self.add_toplevel.focus()
 
 
 class TabFrame(ctk.CTkFrame):
@@ -347,6 +406,8 @@ class AddFrame(ctk.CTkToplevel):
         super().__init__(parent)
         self.data_frame = AddDataFrame(self, table, con_data_frame)
         self.focus()
+        self.rowconfigure(0, weight=1, uniform='a')
+        self.columnconfigure(0, weight=1, uniform='a')
 
     def show(self):
         self.data_frame.show()

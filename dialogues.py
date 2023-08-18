@@ -1,4 +1,3 @@
-import tkinter as tk
 
 import tkinter.filedialog
 
@@ -419,6 +418,9 @@ class ReadBarCodeDialogue(ctk.CTkToplevel):
         self.table = table
         self.bar_code_entry = ctk.CTkEntry(self, border_color=BTN_STANDARD)
         self.bind('<Return>', self.submit)
+        self.grab_set()
+
+
 
     def delete(self):
         data = self.bar_code_entry.get()
@@ -438,4 +440,5 @@ class ReadBarCodeDialogue(ctk.CTkToplevel):
     def show(self):
         ctk.CTkLabel(self, text='После ввода нажмите клавишу Enter').pack()
         self.bar_code_entry.pack()
-        self.bar_code_entry.focus()
+        self.bar_code_entry.focus_force()
+

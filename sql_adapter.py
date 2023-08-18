@@ -154,6 +154,8 @@ class Adapter:
             raise AdapterWrongInputException
         except psycopg2.errors.DatatypeMismatch:
             raise AdapterWrongInputException
+        except TypeError:
+            raise AdapterWrongInputException
 
     def update(self, table_name: str, column_name: str, column_value: str, other_columns: Dict[str, str]):
         placeholders = [column_value]

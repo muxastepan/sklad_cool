@@ -1,6 +1,5 @@
 import os
 import sys
-import tkinter
 
 from frames import *
 from misc import SettingsFileManager, resource_path

@@ -51,7 +51,7 @@ class DataMatrixReader:
         hdc.StartPage()
 
         dib = ImageWin.Dib(img)
-        dib.draw(hdc.GetHandleOutput(), (0, 0, 30, 30))
+        dib.draw(hdc.GetHandleOutput(), (15, 5, 45, 35))
 
         hdc.EndPage()
         hdc.EndDoc()
