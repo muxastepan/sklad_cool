@@ -1,10 +1,8 @@
-import datetime
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable, Dict, Literal
+from typing import Callable, Literal
 from tkinter import messagebox
 from tables import *
-from tkcalendar import DateEntry
 import customtkinter as ctk
 from gui_colors import *
 
@@ -106,7 +104,7 @@ class QuestionBox(ctk.CTkToplevel):
         ctk.CTkLabel(self, text=text).pack(side=tk.TOP, pady=10, padx=10)
         FailButton(self, text='Нет', command=self.destroy).pack(side=tk.LEFT, padx=20, pady=10)
         SuccessButton(self, text='Да', command=self.run_callback).pack(side=tk.RIGHT, padx=20, pady=10)
-        self.focus()
+        self.grab_set()
 
     def run_callback(self):
         if self.args:
@@ -267,7 +265,7 @@ class DataGridView(ctk.CTkFrame):
 
         def save_edit():
             data = TypeIdentifier.identify_parse(edit_entry.get())
-            if not data:
+            if data != 0 and not data:
                 data = None
             if self.straight_mode:
                 row_data = self.table_gui.item(item, 'values')
@@ -301,7 +299,7 @@ class DataGridView(ctk.CTkFrame):
                 self.table.commit()
                 self.table.update_var_attrs()
 
-            self.table_gui.set(item, column=column, value=data if data else 'Пусто')
+            self.table_gui.set(item, column=column, value=data if not data is None else 'Пусто')
 
             edit_entry.destroy()
 
@@ -367,7 +365,7 @@ class DataGridView(ctk.CTkFrame):
         for i, val in enumerate(data):
             if type(val) == bool:
                 continue
-            if not val:
+            if val is None:
                 data[i] = 'Пусто'
         self.table_gui.insert('', tk.END, values=data, tags=('odd',) if self._row_count % 2 == 1 else ('even',))
 

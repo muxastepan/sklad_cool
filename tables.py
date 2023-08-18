@@ -304,26 +304,51 @@ class ProductsTable(Table):
 
 class SalaryTable(Table):
     def __init__(self, adapter: Adapter):
-        super().__init__(adapter, 'all_recs_by_emp', ('emp_name', 'salary'),
-                         ('Ф.И.О.', 'К начислению'),
+        super().__init__(adapter, 'all_recs_by_emp', ('emp_name', 'suma', 'bonus', 'ndfl',
+                                                      'tax', 'payment', 'result'),
+                         ('Ф.И.О.', 'К начислению', 'Премия', 'НДФЛ 13%', 'Налоговый вычет', 'Аванс', 'К выдаче'),
                          date_column='product_date_stored')
 
     def select_all(self):
         try:
-            data = self.adapter.select(self.table_name, columns=('emp_name', 'SUM(salary)'),
-                                       group_by=('emp_name',))
+            query = '''
+            SELECT emp_name, suma,bonus,
+                (suma-tax)*0.13 as ndfl,tax,payment,
+                suma+bonus-(suma-tax)*0.13-payment as result
+                FROM 
+                    (SELECT emp_name, SUM(salary) as suma
+                    FROM all_recs_by_emp                    
+                    GROUP BY emp_name) as emp_res
+                LEFT JOIN employees
+                ON employees.employee_name = emp_name
+            '''
+            data = self.adapter.execute_query(query, fetch_data=True)
+
         except AdapterRecNotExistException:
             print('Warning: DB is empty')
+            self.commit()
             return []
         self.commit()
-        return data
+        res_data = []
+        for rec in data:
+            res_data.append([TypeIdentifier.identify_parse(val) for val in rec])
+        return res_data
 
     def select_by_date(self, date_start, date_end):
         try:
-            data = \
-                self.adapter.select(self.table_name, columns=('emp_name', 'SUM(salary)'),
-                                    group_by=('emp_name',),
-                                    conditions=f"{self.date_column} BETWEEN '{date_start}' AND '{date_end}'")
+            query = f'''
+                        SELECT emp_name, suma,bonus,
+                            (suma-tax)*0.13 as ndfl,tax,payment,
+                            suma+bonus-(suma-tax)*0.13-payment as result
+                            FROM 
+                                (SELECT emp_name, SUM(salary) as suma
+                                FROM all_recs_by_emp
+                                WHERE product_date_stored BETWEEN %s AND %s                    
+                                GROUP BY emp_name) as emp_res
+                            LEFT JOIN employees
+                            ON employees.employee_name = emp_name
+                        '''
+            data = self.adapter.execute_query(query, (date_start, date_end), fetch_data=True)
         except AdapterRecNotExistException:
             print('WARNING: DB is empty')
             self.commit()

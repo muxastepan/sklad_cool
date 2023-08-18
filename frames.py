@@ -2,6 +2,7 @@ import os.path
 import tkinter
 
 from dialogues import *
+from misc import DocHtmlWriter
 from widgets import *
 from tables import *
 import customtkinter as ctk
@@ -51,7 +52,7 @@ class TabScroll(ctk.CTkFrame):
         self.sel_tab = self.tabs[name]
         self.sel_tab.show(row=0, column=1)
         for data_frame in self.sel_tab.data_frames:
-            data_frame.data_grid.update_table_gui_from_table()
+            data_frame.update_table()
 
 
 class ProdArchiveMenu(tk.Menu):
@@ -95,7 +96,7 @@ class SalaryPerSizeFrame(ctk.CTkToplevel):
 
         self.columnconfigure(0, weight=1, uniform='a')
         self.rowconfigure(0, weight=1, uniform='a')
-        self.focus()
+        self.grab_set()
 
     def show(self):
         self.data_frame.show()
@@ -178,6 +179,9 @@ class DataFrame(ctk.CTkFrame):
 
         self.add_toplevel = None
 
+    def update_table(self):
+        self.data_grid.update_table_gui_from_table()
+
     def show_add_dialogue(self):
         if self.add_toplevel is None or not self.add_toplevel.winfo_exists():
             self.add_toplevel = AddDBRecordDialogue(self, self.table)
@@ -192,6 +196,31 @@ class DataFrame(ctk.CTkFrame):
             self.data_grid.grid(row=1, column=0, sticky=tkinter.NSEW)
         else:
             self.data_grid.grid(row=1, column=0, sticky=tkinter.NSEW)
+
+
+class SalaryDataFrame(DataFrame):
+    def __init__(self, parent, table):
+        super().__init__(parent, table, can_add=False, preload_from_table=True)
+
+    def update_table(self):
+        super().update_table()
+        sum_row = ['Итого:']
+        sum_row.extend(
+            [sum([data[i] for data in self.data_grid.data]) for i in range(1, len(self.table.column_names))]
+        )
+        self.data_grid.add_row(sum_row)
+
+
+class AdvSalaryDataFrame(DataFrame):
+    def __init__(self, parent, table):
+        super().__init__(parent, table, can_add=False, preload_from_table=True)
+
+    def update_table(self):
+        super().update_table()
+        count = sum([data[3] for data in self.data_grid.data])
+        suma = sum([data[4] for data in self.data_grid.data])
+        sum_row = ['Итого:', None, None, count, suma]
+        self.data_grid.add_row(sum_row)
 
 
 class ProductDataFrame(DataFrame):
@@ -391,7 +420,16 @@ class SalaryTabFrame(TabFrame):
         return self
 
     def print_doc(self):
-        pass
+        data = self.data_frames[1].data_grid.data
+        res_sum = ['ИТОГО:']
+        res_sum.extend(
+            [sum([row[i] for row in data]) for i in range(1, len(data[0]))]
+        )
+        data.append(res_sum)
+        headings = self.data_frames[1].table.column_headings
+        month = self.date_select.month_entry.get().lower()
+        year = self.date_select.year.get()
+        DocHtmlWriter.write_res_doc_to_html(year, month, headings, data)
 
     def show(self, row=0, column=0, columnspan=1, rowspan=1):
         self.grid(row=row, column=column, columnspan=columnspan, sticky=tk.NSEW, rowspan=rowspan)
@@ -405,7 +443,7 @@ class AddFrame(ctk.CTkToplevel):
     def __init__(self, parent, table, con_data_frame: DataFrame):
         super().__init__(parent)
         self.data_frame = AddDataFrame(self, table, con_data_frame)
-        self.focus()
+        self.grab_set()
         self.rowconfigure(0, weight=1, uniform='a')
         self.columnconfigure(0, weight=1, uniform='a')
 
@@ -427,7 +465,7 @@ class AttrFrame(ctk.CTkToplevel):
         self.table = table
         for i in range(len(self.table.attr_tables)):
             self.columnconfigure(i, weight=1, uniform='a', minsize=200)
-        self.focus()
+        self.grab_set()
 
     def show(self):
         for i, attr_table in enumerate(self.table.attr_tables):
@@ -446,7 +484,7 @@ class ProdArchiveFrame(ctk.CTkToplevel):
         self.columnconfigure(0, weight=1, uniform='a')
         self.rowconfigure(0, weight=1, uniform='a')
         self.rowconfigure(1, weight=20, uniform='a')
-        self.focus()
+        self.grab_set()
 
     def show(self):
         self.data_grid.grid(row=1, column=0, sticky=tk.NSEW)

@@ -52,8 +52,8 @@ class MainFrame(ctk.CTk):
 
         self.salary_tab = SalaryTabFrame(self.tabs, "Расчет зарплаты")
         self.salary_tab.fill_data_frames(
-            DataFrame(self.salary_tab, self.adv_salary_table, can_add=False, preload_from_table=True),
-            DataFrame(self.salary_tab, self.salary_table, can_add=False, preload_from_table=True)
+            AdvSalaryDataFrame(self.salary_tab, self.adv_salary_table),
+            SalaryDataFrame(self.salary_tab, self.salary_table)
         )
         self.employee_tab = TabFrame(self.tabs, 'Сотрудники')
         self.employee_tab.fill_data_frames(

@@ -61,6 +61,33 @@ class Adapter:
     def rollback(self):
         self.con.rollback()
 
+    def execute_query(self, query: str, placeholders: Union[tuple, list] = None, fetch_data=False):
+        try:
+            if placeholders:
+                self.cur.execute(query,
+                                 placeholders)
+            elif placeholders is None:
+                self.cur.execute(query)
+        except psycopg2.errors.UniqueViolation:
+            raise AdapterUniqueValueException
+        except psycopg2.errors.NotNullViolation:
+            raise AdapterNotNullException
+        except psycopg2.errors.CheckViolation:
+            raise AdapterWrongInputException
+        except psycopg2.errors.ForeignKeyViolation as ex:
+            raise AdapterFKException(repr(ex))
+        except psycopg2.DataError:
+            raise AdapterWrongInputException
+        except psycopg2.errors.DatatypeMismatch:
+            raise AdapterWrongInputException
+        except TypeError:
+            raise AdapterWrongInputException
+        except psycopg2.errors.ObjectNotInPrerequisiteState:
+            raise AdapterCurSecException
+        if fetch_data:
+            data = self.cur.fetchall()
+            return data
+
     def insert(self, table_name: str, data_list: Union[list, tuple], column_order: tuple = None, if_not_exist=False):
         query = f"INSERT INTO {table_name} "
         if column_order:
@@ -73,22 +100,7 @@ class Adapter:
         query += f"VALUES {values_placeholder}"
         if if_not_exist:
             query += " ON CONFLICT DO NOTHING"
-        try:
-            self.cur.execute(query,
-                             data_list)
-        except psycopg2.errors.UniqueViolation as ex:
-            raise AdapterUniqueValueException
-        except psycopg2.errors.NotNullViolation:
-            raise AdapterNotNullException
-        except psycopg2.errors.CheckViolation as ex:
-            print(ex)
-            raise AdapterWrongInputException
-        except psycopg2.errors.ForeignKeyViolation as ex:
-            raise AdapterFKException(repr(ex))
-        except psycopg2.errors.DatatypeMismatch:
-            raise AdapterWrongInputException
-        except psycopg2.DataError:
-            raise AdapterWrongInputException
+        self.execute_query(query, data_list)
 
     def select(self, table_name, columns: Union[list, tuple] = None, distinct=False, conditions: str = None,
                order: Union[list, tuple] = None, limit=None, group_by: tuple = None):
@@ -115,47 +127,21 @@ class Adapter:
             query += f' LIMIT {limit}'
         if group_by:
             query += f" GROUP BY ({','.join(group_by)})"
-        try:
-            self.cur.execute(query)
-        except psycopg2.DataError:
-            self.con.rollback()
-            raise ValueError
-        data = self.cur.fetchall()
+        data = self.execute_query(query, fetch_data=True)
         if not data:
             raise AdapterRecNotExistException
         return data
 
     def delete(self, table_name: str, p_key_name: str, p_key_value: str):
-        try:
-            self.cur.execute(
-                f"DELETE FROM {table_name} WHERE {p_key_name} = %s", (p_key_value,)
-            )
-        except psycopg2.DataError:
-            raise AdapterWrongInputException
-        except psycopg2.errors.ForeignKeyViolation as ex:
-            raise AdapterFKException(repr(ex))
+        query = f"DELETE FROM {table_name} WHERE {p_key_name} = %s"
+        self.execute_query(query, (p_key_value,))
 
     def update_by_id(self, table_name: str, column_name: str, column_value: str, rec_id: str = None,
                      column_id_name: str = None):
         query = f"UPDATE {table_name} SET {column_name}=%s"
         if rec_id and column_id_name:
             query += f" WHERE {column_id_name} = %s"
-        try:
-            self.cur.execute(query, (column_value, rec_id))
-        except psycopg2.errors.UniqueViolation:
-            raise AdapterUniqueValueException
-        except psycopg2.errors.NotNullViolation:
-            raise AdapterNotNullException
-        except psycopg2.errors.CheckViolation:
-            raise AdapterWrongInputException
-        except psycopg2.errors.ForeignKeyViolation as ex:
-            raise AdapterFKException(repr(ex))
-        except psycopg2.DataError:
-            raise AdapterWrongInputException
-        except psycopg2.errors.DatatypeMismatch:
-            raise AdapterWrongInputException
-        except TypeError:
-            raise AdapterWrongInputException
+        self.execute_query(query, (column_value, rec_id))
 
     def update(self, table_name: str, column_name: str, column_value: str, other_columns: Dict[str, str]):
         placeholders = [column_value]
@@ -166,34 +152,18 @@ class Adapter:
                 query += f" {col} = %s AND"
                 placeholders.append(val)
             query = query.rstrip('AND')
-        try:
-            self.cur.execute(query, placeholders)
-        except psycopg2.errors.UniqueViolation:
-            raise AdapterUniqueValueException
-        except psycopg2.errors.NotNullViolation:
-            raise AdapterNotNullException
-        except psycopg2.errors.CheckViolation:
-            raise AdapterWrongInputException
-        except psycopg2.errors.ForeignKeyViolation as ex:
-            raise AdapterFKException(repr(ex))
-        except psycopg2.DataError:
-            raise AdapterWrongInputException
-        except psycopg2.errors.DatatypeMismatch:
-            raise AdapterWrongInputException
+        self.execute_query(query, placeholders)
 
     def next_sequence(self, seq_name):
         query = f"SELECT NEXTVAL('{seq_name}')"
-        self.cur.execute(query)
+        self.execute_query(query)
         data = self.cur.fetchall()
         self.con.commit()
         return data[0][0]
 
     def cur_sequence(self, seq_name):
         query = f"SELECT CURRVAL('{seq_name}')"
-        try:
-            self.cur.execute(query)
-        except psycopg2.errors.ObjectNotInPrerequisiteState:
-            raise AdapterCurSecException
+        self.execute_query(query)
         data = self.cur.fetchall()
         self.con.commit()
         return data[0][0]

@@ -1,4 +1,3 @@
-
 import tkinter.filedialog
 
 import win32print
@@ -40,7 +39,7 @@ class PrinterDialogue(ctk.CTkToplevel):
         self.columnconfigure(1, weight=1, uniform='a')
         self.columnconfigure(2, weight=1, uniform='a')
 
-        self.focus()
+        self.grab_set()
 
     def update_text(self):
         if not self.data:
@@ -82,6 +81,7 @@ class PrinterDialogue(ctk.CTkToplevel):
 class AddDBRecordDialogue(ctk.CTkToplevel):
     def __init__(self, parent, table: Table, straight_mode: bool = True, temp_var_attrs: list = None):
         super().__init__(parent)
+        self.title(f"Добавление")
         self.straight_mode = straight_mode
         self.temp_var_attrs = temp_var_attrs
         self.parent = parent
@@ -89,7 +89,7 @@ class AddDBRecordDialogue(ctk.CTkToplevel):
         self.submit_button = SuccessButton(self, text='Отправить', command=self.submit_close)
         self.value_entries = self._build()
         self.bind('<Return>', self.submit_close_k_enter)
-        self.focus()
+        self.grab_set()
 
     def submit_close_k_enter(self, event):
         self.submit_close()
@@ -131,7 +131,6 @@ class AddDBRecordDialogue(ctk.CTkToplevel):
             ctk.CTkLabel(self, text=self.table.column_headings[i], text_color=TEXT_COLOR).pack()
             self.value_entries[i].pack(padx=10, pady=5)
         self.submit_button.pack(padx=10, pady=5)
-        self.focus()
 
 
 class AddProductRecordDialogue(AddDBRecordDialogue):
@@ -165,7 +164,6 @@ class AddEmployeeRecordDialogue(AddDBRecordDialogue):
     def __init__(self, parent, employees_table: EmployeesTable):
         super().__init__(parent, employees_table)
         self.title('Добавить сотрудника')
-        self.focus()
 
 
 class SettingsDialogue(ctk.CTkToplevel):
@@ -181,7 +179,7 @@ class SettingsDialogue(ctk.CTkToplevel):
         self.columnconfigure(1, weight=1, uniform='a')
         self.rowconfigure(0, weight=5, uniform='a')
         self.rowconfigure(1, weight=1, uniform='a')
-        self.focus()
+        self.grab_set()
 
     def show(self):
         self.window_frame.grid(row=0, column=0, columnspan=3, sticky='nsew')
@@ -420,8 +418,6 @@ class ReadBarCodeDialogue(ctk.CTkToplevel):
         self.bind('<Return>', self.submit)
         self.grab_set()
 
-
-
     def delete(self):
         data = self.bar_code_entry.get()
         try:
@@ -441,4 +437,3 @@ class ReadBarCodeDialogue(ctk.CTkToplevel):
         ctk.CTkLabel(self, text='После ввода нажмите клавишу Enter').pack()
         self.bar_code_entry.pack()
         self.bar_code_entry.focus_force()
-
