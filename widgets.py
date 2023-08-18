@@ -36,18 +36,18 @@ class SuccessButton(ctk.CTkButton):
 
 class DateSelector(ctk.CTkFrame):
     MONTHS = {
-        'Январь': '01',
-        'Февраль': '02',
-        'Март': '03',
-        'Апрель': '04',
-        'Май': '05',
-        'Июнь': '06',
-        'Июль': '07',
-        'Август': '08',
-        'Сентябрь': '09',
-        'Октябрь': '10',
-        'Ноябрь': '11',
-        'Декабрь': '12',
+        'Январь': ('01', '31'),
+        'Февраль': ('02', '28'),
+        'Март': ('03', '31'),
+        'Апрель': ('04', '30'),
+        'Май': ('05', '31'),
+        'Июнь': ('06', '30'),
+        'Июль': ('07', '31'),
+        'Август': ('08', '31'),
+        'Сентябрь': ('09', '30'),
+        'Октябрь': ('10', '31'),
+        'Ноябрь': ('11', '30'),
+        'Декабрь': ('12', '31')
     }
 
     def __init__(self, parent, *con_data_frames):
@@ -72,9 +72,10 @@ class DateSelector(ctk.CTkFrame):
 
     def search_by_date(self):
         year = self.year.get()
-        month = DateSelector.MONTHS[self.month_entry.get()]
+        month = DateSelector.MONTHS[self.month_entry.get()][0]
+        last_day = DateSelector.MONTHS[self.month_entry.get()][1]
         beg = f'01.{month}.{year}'
-        end = f'31.{month}.{year}'
+        end = f'{last_day}.{month}.{year}'
         res_data = []
         for data_frame in self.con_data_frames:
             try:
@@ -86,7 +87,7 @@ class DateSelector(ctk.CTkFrame):
                 return
         for i, data_frame in enumerate(self.con_data_frames):
             data_frame.table.commit()
-            data_frame.data_grid.update_table_gui_with_data(res_data[i])
+            data_frame.update_table_with_data(res_data[i])
 
     def show(self, row=0, column=0, columnspan=1):
         self.grid(row=row, column=column, columnspan=columnspan, sticky=tk.NSEW)
@@ -96,8 +97,10 @@ class DateSelector(ctk.CTkFrame):
 
 
 class QuestionBox(ctk.CTkToplevel):
-    def __init__(self, parent, text: str, callback: Callable, *args):
+    def __init__(self, parent, text: str, callback: Callable, *args, title: str = None):
         super().__init__(parent)
+        if title:
+            self.title(title)
         self.callback = callback
         self.args = args
         self.parent = parent
@@ -108,7 +111,7 @@ class QuestionBox(ctk.CTkToplevel):
 
     def run_callback(self):
         if self.args:
-            self.callback(self.args)
+            self.callback(*self.args)
         else:
             self.callback()
         self.destroy()
@@ -116,8 +119,7 @@ class QuestionBox(ctk.CTkToplevel):
 
 class RestartQuestionBox(QuestionBox):
     def __init__(self, parent, text):
-        super().__init__(parent, text, parent.restart)
-        self.title('Перезапуск')
+        super().__init__(parent, text, parent.restart, title='Перезапуск')
 
 
 class AddAttrQuestionBox(QuestionBox):
@@ -126,8 +128,7 @@ class AddAttrQuestionBox(QuestionBox):
             callback = parent.table.attr_tables[-1].add
         else:
             callback = parent.table.attr_tables[column_ind].add
-        super().__init__(parent, text, callback, *args)
-        self.title('Добавление аттрибута')
+        super().__init__(parent, text, callback, *args, title='Добавление аттрибута')
 
     def run_callback(self):
         try:
@@ -153,8 +154,9 @@ class DataGridView(ctk.CTkFrame):
 
     def __init__(self, parent, table: Table, editable: bool = False, deletable: bool = False,
                  preload_from_table: bool = False, straight_mode: bool = True, spec_ops: Dict[str, Callable] = None,
-                 select_func: Callable = None):
+                 select_func: Callable = None, have_sum_row=False):
         super().__init__(parent, fg_color=FRAME_COLOR)
+        self.have_sum_row = have_sum_row
         self.columnconfigure(0, weight=1, uniform='a')
         self.rowconfigure(0, weight=1, uniform='a')
 
@@ -216,15 +218,13 @@ class DataGridView(ctk.CTkFrame):
         self.__editable = val
 
     def update_table_gui_with_data(self, data: list):
-        for row in self.data:
-            self.delete_row(row[0])
+        self.delete_rows(self.table_gui.get_children())
         self.data = data
         for row in self.data:
             self.add_row(row)
 
     def update_table_gui_from_table(self):
-        for row in self.data:
-            self.delete_row(row[0])
+        self.delete_rows(self.table_gui.get_children())
         if self.preload_from_table:
             self.data = self.select_func()
         else:
@@ -310,6 +310,8 @@ class DataGridView(ctk.CTkFrame):
 
     def sort_data(self, col, reverse):
         data = [(self.table_gui.set(child, col), child) for child in self.table_gui.get_children('')]
+        if self.have_sum_row:
+            data.pop()
         data.sort(reverse=reverse, key=lambda x: TypeIdentifier.identify_parse(x[0]))
         for index, (val, child) in enumerate(data):
             self.table_gui.move(child, '', index)
@@ -342,9 +344,11 @@ class DataGridView(ctk.CTkFrame):
         for item in items:
             data = self.table_gui.item(item)['values']
             p_key = data[0]
+            p_name = self.table.p_key_column_name
+            other_columns = {self.table.column_names[i]: data[i] for i in range(len(self.table.column_names))}
             if self.straight_mode:
                 try:
-                    self.table.remove(self.table.p_key_column_name, p_key)
+                    self.table.remove(p_name, p_key, other_columns)
                 except AdapterException as ex:
                     MessageBox(ex, 'ERROR')
                     self.table.rollback()
@@ -355,9 +359,10 @@ class DataGridView(ctk.CTkFrame):
                     MessageBox(ex, 'ERROR')
                     self.table.rollback()
                     return
-
                 self.table.update_var_attrs()
-            self.delete_row(p_key)
+        self.table.commit()
+
+        self.delete_rows(items)
 
     def add_row(self, data):
         data = list(data)
@@ -369,17 +374,15 @@ class DataGridView(ctk.CTkFrame):
                 data[i] = 'Пусто'
         self.table_gui.insert('', tk.END, values=data, tags=('odd',) if self._row_count % 2 == 1 else ('even',))
 
-    def delete_row(self, rec_id: Union[int, str]):
-        self._row_count -= 1
-        rows = self.table_gui.get_children()
-        for row in rows:
-            if self.table_gui.item(row)['values'][0] == rec_id:
-                self.table_gui.delete(row)
+    def delete_rows(self, items: Union[tuple, list]):
+        for item in items:
+            self._row_count -= 1
+            self.table_gui.delete(item)
 
 
 class AutoCompletionCombobox(ctk.CTkComboBox):
     def __init__(self, root, width=None, height=None, values=None):
-        super().__init__(root, values=[str(i) for i in values if i] if values else None,
+        super().__init__(root, values=[str(i) for i in values if i] if values else [],
                          fg_color=FRAME_COLOR,
                          button_color=BTN_STANDARD,
                          button_hover_color=BTN_HOVER,

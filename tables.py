@@ -72,8 +72,8 @@ class Table:
     def add(self, data_list: Union[list, tuple]):
         self.adapter.insert(self.table_name, data_list)
 
-    def remove(self, attr: str, value: str):
-        self.adapter.delete(self.table_name, attr, value)
+    def remove(self, attr: str, value: str, other_columns=None):
+        self.adapter.delete(self.table_name, attr, value, other_columns=other_columns)
 
     def select_all(self):
         try:
@@ -142,10 +142,10 @@ class EmployeesTable(Table):
         data = [data[0].strip(' ')]
         super().add(data)
 
-    def remove(self, attr: str, value: str):
+    def remove(self, attr: str, value: str, other_columns=None):
         value.strip(' ')
         try:
-            super().remove(attr, value)
+            super().remove(attr, value, other_columns=other_columns)
         except AdapterFKException:
             raise EmpTableValUsedInOtherTable
 
@@ -175,10 +175,10 @@ class EmployeesNameTable(AttrTable):
         data = [data[0].strip(' ')]
         super().add(data, if_not_exist=if_not_exist)
 
-    def remove(self, attr: str, value: str):
+    def remove(self, attr: str, value: str, other_columns=None):
         value.strip(' ')
         try:
-            super().remove(attr, value)
+            super().remove(attr, value, other_columns=other_columns)
         except AdapterFKException:
             raise EmpTableValUsedInOtherTable
 
@@ -208,6 +208,10 @@ class SalaryPerSizeTable(Table):
         self.var_attrs.append(self.attr_tables[0].select_all())
         self.var_attrs.append(self.select_columns(('salary',)))
         self.var_attrs.append(self.attr_tables[1].select_all())
+
+    def remove(self, attr: str, value: str, other_columns=None):
+        self.adapter.delete(self.table_name, attr, value,
+                            other_columns=other_columns)
 
 
 class ProductsTable(Table):
@@ -253,12 +257,12 @@ class ProductsTable(Table):
     def select_matrix(self, rec_id):
         return self.select_id(rec_id, ('matrix_dir',))
 
-    def remove(self, attr: str, value: str):
+    def remove(self, attr: str, value: str, other_columns=None):
         matrix_path = self.select_matrix(value)[0]
         try:
             DataMatrixReader.delete_matrix(matrix_path)
         except FileNotFoundError:
-            super().remove(attr, value)
+            super().remove(attr, value, other_columns=other_columns)
             raise ProdTableMatrixNotFoundWarning
         super().remove(attr, value)
 
@@ -306,18 +310,29 @@ class SalaryTable(Table):
     def __init__(self, adapter: Adapter):
         super().__init__(adapter, 'all_recs_by_emp', ('emp_name', 'suma', 'bonus', 'ndfl',
                                                       'tax', 'payment', 'result'),
-                         ('Ф.И.О.', 'К начислению', 'Премия', 'НДФЛ 13%', 'Налоговый вычет', 'Аванс', 'К выдаче'),
+                         ('Ф.И.О.', 'К начислению', 'Премия', 'Налоговый вычет', 'НДФЛ 13%', 'Аванс', 'К выдаче'),
                          date_column='product_date_stored')
 
     def select_all(self):
         try:
             query = '''
-            SELECT emp_name, suma,bonus,
-                (suma-tax)*0.13 as ndfl,tax,payment,
-                suma+bonus-(suma-tax)*0.13-payment as result
+                SELECT emp_name, suma,bonus, tax,
+                CASE
+                    WHEN (suma+bonus-tax)*0.13>0 THEN (suma+bonus-tax)*0.13
+                    ELSE 0
+                END
+                AS ndfl,
+                payment,
+                CASE 
+                    WHEN
+                        suma+bonus-(CASE WHEN (suma+bonus-tax)*0.13>0 THEN (suma+bonus-tax)*0.13 ELSE 0 END)-payment>0 
+                        THEN
+                        suma+bonus-(CASE WHEN (suma+bonus-tax)*0.13>0 THEN (suma+bonus-tax)*0.13 ELSE 0 END)-payment
+                    ELSE 0
+                END AS result		
                 FROM 
                     (SELECT emp_name, SUM(salary) as suma
-                    FROM all_recs_by_emp                    
+                    FROM all_recs_by_emp                                       
                     GROUP BY emp_name) as emp_res
                 LEFT JOIN employees
                 ON employees.employee_name = emp_name
@@ -337,16 +352,27 @@ class SalaryTable(Table):
     def select_by_date(self, date_start, date_end):
         try:
             query = f'''
-                        SELECT emp_name, suma,bonus,
-                            (suma-tax)*0.13 as ndfl,tax,payment,
-                            suma+bonus-(suma-tax)*0.13-payment as result
-                            FROM 
-                                (SELECT emp_name, SUM(salary) as suma
-                                FROM all_recs_by_emp
-                                WHERE product_date_stored BETWEEN %s AND %s                    
-                                GROUP BY emp_name) as emp_res
-                            LEFT JOIN employees
-                            ON employees.employee_name = emp_name
+                SELECT emp_name, suma,bonus, tax,
+                CASE
+                    WHEN (suma+bonus-tax)*0.13>0 THEN (suma+bonus-tax)*0.13
+                    ELSE 0
+                END
+                AS ndfl,
+                payment,
+                CASE 
+                    WHEN
+                        suma+bonus-(CASE WHEN (suma+bonus-tax)*0.13>0 THEN (suma+bonus-tax)*0.13 ELSE 0 END)-payment>0 
+                        THEN
+                        suma+bonus-(CASE WHEN (suma+bonus-tax)*0.13>0 THEN (suma+bonus-tax)*0.13 ELSE 0 END)-payment
+                    ELSE 0
+                END AS result		
+                FROM 
+                    (SELECT emp_name, SUM(salary) as suma
+                    FROM all_recs_by_emp
+                    WHERE product_date_stored BETWEEN %s AND %s                    
+                    GROUP BY emp_name) as emp_res
+                LEFT JOIN employees
+                ON employees.employee_name = emp_name
                         '''
             data = self.adapter.execute_query(query, (date_start, date_end), fetch_data=True)
         except AdapterRecNotExistException:

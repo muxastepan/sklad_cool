@@ -53,7 +53,7 @@ class DocHtmlWriter:
             for i in range(len(data) - 1):
                 row = data[i]
                 f.write(f'''<tr>
-                            <td>{i+1}</td>''')
+                            <td>{i + 1}</td>''')
                 f.writelines([f"<td>{cell}</td>" for cell in row])
                 f.write('''
                         <td></td>
@@ -104,6 +104,8 @@ class TypeIdentifier:
             return round(value, 2)
         elif all(re.match(r'\d+', i) for i in value):
             return int(value)
+        elif re.match(r'\d{2}\.\d{2}\.\d{4}', value):
+            return value
         elif re.match(r'\d+\.\d{2}', value):
             return decimal.Decimal(value)
         else:

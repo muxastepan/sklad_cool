@@ -8,8 +8,8 @@ import customtkinter as ctk
 
 
 class PrinterDialogue(ctk.CTkToplevel):
-    def __init__(self, paths, data):
-        super().__init__()
+    def __init__(self, parent, paths, data):
+        super().__init__(master=parent)
         self.title('Печать матриц')
         self.data = data
         self.paths = paths
@@ -427,7 +427,8 @@ class ReadBarCodeDialogue(ctk.CTkToplevel):
             self.table.rollback()
             MessageBox(ex, 'ERROR')
             return
-        self.parent.data_grid.delete_row(int(data))
+        self.parent.data_grid.delete_rows([item for item in self.parent.data_grid.table_gui.get_children() if
+                                           self.parent.data_grid.table_gui.item(item)['values'][0] == int(data)])
 
     def submit(self, event):
         self.delete()

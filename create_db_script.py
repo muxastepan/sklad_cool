@@ -178,9 +178,9 @@ class ProgressFrame(tk.Frame):
                 END
                 $func$;
             SELECT f_add_col('salary_per_size','type','varchar');            
-            
+
             ALTER TABLE salary_per_size DROP CONSTRAINT IF EXISTS  salary_per_size_type_fkey; 
-            
+
             ALTER TABLE IF EXISTS salary_per_size
                 ADD CONSTRAINT salary_per_size_type_fkey
                 FOREIGN KEY (type)

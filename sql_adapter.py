@@ -132,9 +132,18 @@ class Adapter:
             raise AdapterRecNotExistException
         return data
 
-    def delete(self, table_name: str, p_key_name: str, p_key_value: str):
-        query = f"DELETE FROM {table_name} WHERE {p_key_name} = %s"
-        self.execute_query(query, (p_key_value,))
+    def delete(self, table_name: str, p_key_name: str, p_key_value: str, other_columns: Dict[str, str] = None):
+        query = f"DELETE FROM {table_name} WHERE "
+        if p_key_name:
+            query += f"{p_key_name} = %s"
+            self.execute_query(query, (p_key_value,))
+            return
+        placeholders = []
+        for name, value in other_columns.items():
+            query += f" {name} = %s AND"
+            placeholders.append(value)
+        query = query.rstrip('AND')
+        self.execute_query(query, placeholders)
 
     def update_by_id(self, table_name: str, column_name: str, column_value: str, rec_id: str = None,
                      column_id_name: str = None):
